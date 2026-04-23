@@ -1,5 +1,4 @@
 # Local AI coding setup (do not push)
-README.md
 AGENTS.md
 CLAUDE.md
 .mcp.json
@@ -20,3 +19,22 @@ CLAUDE.md
 .github/pull_request_template.md
 .github/workflows/ci.yml
 .github/workflows/actionlint.yml
+
+# JavaScript/TypeScript
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS and editor noise
+.DS_Store
