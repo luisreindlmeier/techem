@@ -1,0 +1,22 @@
+# Local AI coding setup (do not push)
+README.md
+AGENTS.md
+CLAUDE.md
+.mcp.json
+
+# Agent and assistant directories
+.claude/
+.context/
+.cursor/
+
+# Copilot/assistant instructions and prompts
+.github/copilot-instructions.md
+.github/instructions/
+.github/prompts/
+.github/agents/
+.github/skills/
+
+# Copied local templates
+.github/pull_request_template.md
+.github/workflows/ci.yml
+.github/workflows/actionlint.yml
