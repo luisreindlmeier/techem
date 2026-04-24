@@ -6,6 +6,12 @@
   .bar-fill { width: var(--bar-w, 0%); }
 }
 
+.recharts-wrapper svg,
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus {
+  outline: none !important;
+}
+
 @font-face {
   font-family: 'Geist';
   src: url('/fonts/Geist-Variable.woff2') format('woff2');

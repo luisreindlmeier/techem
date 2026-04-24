@@ -53,13 +53,13 @@ const DEG = Math.PI / 180
 
 function explodedSlice(props: Record<string, number> & { fill: string }) {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, midAngle, fill } = props
-  const d = 7
+  const d = 4
   return (
     <Sector
       cx={cx + d * Math.cos(-midAngle * DEG)}
       cy={cy + d * Math.sin(-midAngle * DEG)}
       innerRadius={innerRadius}
-      outerRadius={outerRadius + 3}
+      outerRadius={outerRadius + 1}
       startAngle={startAngle}
       endAngle={endAngle}
       fill={fill}
@@ -75,7 +75,7 @@ function UnitPieChart({ units }: { units: UnitSummary[] }) {
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
         Energy Distribution
       </p>
-      <div className="h-40">
+      <div className="mt-3 h-36">
         <ResponsiveContainer width="100%" height="100%">
           <RechartsPieChart>
             <Pie
@@ -83,9 +83,9 @@ function UnitPieChart({ units }: { units: UnitSummary[] }) {
               dataKey="annualEnergy"
               nameKey="label"
               cx="50%"
-              cy="50%"
-              innerRadius={36}
-              outerRadius={60}
+              cy="48%"
+              innerRadius={42}
+              outerRadius={67}
               stroke="none"
               strokeWidth={0}
               {...({ activeIndex, activeShape: explodedSlice, onMouseEnter: (_: unknown, index: number) => setActiveIndex(index), onMouseLeave: () => setActiveIndex(undefined) } as any)}
@@ -101,9 +101,10 @@ function UnitPieChart({ units }: { units: UnitSummary[] }) {
           </RechartsPieChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-1 text-center text-[10px] text-stone-400">
-        {units.length} units · {total.toLocaleString()} kWh/yr
-      </p>
+      <div className="mt-0.5 text-center">
+        <p className="text-sm font-semibold text-stone-900">{units.length} units</p>
+        <p className="text-xs text-stone-400">{total.toLocaleString()} kWh/yr</p>
+      </div>
     </div>
   )
 }
@@ -199,17 +200,9 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
     [allUnits],
   )
 
-  const floorApts = useMemo(
-    () => APT_LABELS.map((label, i) => {
-      const data = getApartmentData(property.id, selectedFloor, i + 1)
-      const energy = data.reduce((s, d) => s + d.energy_kwh, 0)
-      const cost   = data.reduce((s, d) => s + d.cost_eur,   0)
-      const co2    = data.reduce((s, d) => s + d.co2_kg,     0)
-      return { label: `${selectedFloor}${label}`, idx: i, energy, cost, co2 }
-    }),
-    [property.id, selectedFloor],
-  )
-  const floorMaxEnergy = Math.max(...floorApts.map(a => a.energy))
+  const selectedUnitData = allUnits.find(u => u.floor === selectedFloor && u.apt === APT_LABELS[selectedAptIdx])
+  const selectedUnitRooms = selectedUnitData?.rooms ?? []
+  const roomMaxEnergy = selectedUnitRooms.length > 0 ? Math.max(...selectedUnitRooms.map(r => r.annualEnergy)) : 1
 
   const bottom5 = useMemo(
     () => [...allUnits].sort((a, b) => a.annualEnergy - b.annualEnergy).slice(0, 5),
@@ -255,11 +248,11 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
         <h1 className="text-sm font-semibold text-stone-900">{property.city}, {property.zipcode}</h1>
       </div>
 
-      {/* Body: left scrollable sections + right sticky panel */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* Body: single scroll container so scrollbar lands at screen edge */}
+      <div className="flex flex-1 overflow-y-auto overflow-x-hidden">
 
-        {/* Left: scrollable content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Left: natural-height content drives overall scroll */}
+        <div className="flex-1 min-w-0">
 
           {/* ── Overview ──────────────────────────────────────────── */}
           <section className="px-6 py-6">
@@ -326,10 +319,40 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
 
         </div>
 
-        {/* Right: sticky selection panel */}
-        <div className="flex w-[420px] shrink-0 flex-col gap-3 overflow-y-auto py-5 pl-12 pr-14">
+        {/* Right: sticks to top while left content scrolls past */}
+        <div className="sticky top-0 self-start flex w-[420px] shrink-0 flex-col gap-3 max-h-screen overflow-y-auto py-5 pl-12 pr-14">
 
-          {/* Building view — top, floor labels are clickable */}
+          {/* Floor + Unit dropdowns */}
+          <div className="flex gap-2">
+            <label className="flex-1">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">Floor</span>
+              <select
+                value={selectedFloor}
+                onChange={(e) => setSelectedFloor(Number(e.target.value))}
+                className="h-8 w-full rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800 shadow-sm outline-none transition focus:border-[#E30613] focus:ring-0"
+              >
+                {Array.from({ length: totalFloors }, (_, i) => i + 1).map(f => (
+                  <option key={f} value={f}>Floor {f}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex-1">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">Unit</span>
+              <select
+                value={selectedAptIdx}
+                onChange={(e) => setSelectedAptIdx(Number(e.target.value))}
+                className="h-8 w-full rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800 shadow-sm outline-none transition focus:border-[#E30613] focus:ring-0"
+              >
+                {APT_LABELS.map((label, i) => (
+                  <option key={i} value={i}>Unit {selectedFloor}{label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="h-px bg-stone-200" />
+
+          {/* Building view — floor labels are clickable */}
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
               Building View
@@ -341,8 +364,8 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
             />
           </div>
 
-          {/* Floor plan + apartment breakdown */}
-          <div className="-mt-1">
+          {/* Floor plan + room breakdown */}
+          <div className="-mt-3">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
               Floor {selectedFloor}
             </p>
@@ -352,41 +375,34 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
               floor={selectedFloor}
             />
 
-            <p className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
-              Apartment
+            <p className="mb-1.5 mt-6 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
+              Unit {aptLabel}
             </p>
             <div className="divide-y divide-stone-200">
               <div className="flex items-center py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-stone-400">
-                <span className="w-7">Unit</span>
-                <span className="flex-1 px-2">Energy</span>
-                <span className="w-14 text-right">kWh/yr</span>
+                <span className="flex-1">Room</span>
+                <span className="w-20 px-2 text-center">Usage</span>
+                <span className="w-8 text-right">m²</span>
+                <span className="w-16 text-right">kWh/yr</span>
               </div>
-              {floorApts.map((apt) => {
-                const sel = selectedAptIdx === apt.idx
-                const barW = `${Math.round((apt.energy / floorMaxEnergy) * 100)}%`
+              {selectedUnitRooms.map((room) => {
+                const barW = `${Math.round((room.annualEnergy / roomMaxEnergy) * 100)}%`
                 return (
-                  <button
-                    key={apt.label}
-                    type="button"
-                    onClick={() => setSelectedAptIdx(apt.idx)}
-                    className={cn(
-                      'flex w-full items-center py-1.5 transition-colors',
-                      sel ? 'text-[#E30613]' : 'text-stone-700 hover:text-stone-900',
-                    )}
-                  >
-                    <span className="w-7 text-left text-[11px] font-semibold">{apt.label}</span>
-                    <div className="flex-1 px-2">
+                  <div key={room.name} className="flex items-center py-1.5">
+                    <span className="flex-1 text-[11px] font-medium text-stone-900">{room.name}</span>
+                    <div className="w-20 px-2">
                       <div className="h-1 w-full overflow-hidden rounded-full bg-stone-100">
                         <div
-                          className={cn('bar-fill h-full rounded-full', sel ? 'bg-[#E30613]' : 'bg-stone-300')}
+                          className="bar-fill h-full rounded-full bg-[#E30613]"
                           {...{ style: { '--bar-w': barW } as React.CSSProperties }}
                         />
                       </div>
                     </div>
-                    <span className="w-14 text-right text-[11px] font-medium tabular-nums">
-                      {apt.energy.toLocaleString()}
+                    <span className="w-8 text-right text-[10px] tabular-nums text-stone-400">{room.sqm}</span>
+                    <span className="w-16 text-right text-[11px] font-medium tabular-nums text-stone-700">
+                      {room.annualEnergy.toLocaleString()}
                     </span>
-                  </button>
+                  </div>
                 )
               })}
             </div>

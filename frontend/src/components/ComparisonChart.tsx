@@ -32,12 +32,6 @@ const GRAN_LABELS: Record<Granularity, string> = {
   daily: 'Daily',
 }
 
-const GRAN_SUBTITLE: Record<Granularity, string> = {
-  monthly: 'monthly',
-  weekly: 'weekly',
-  daily: 'daily · Jan',
-}
-
 export function ComparisonChart({
   title, unit, monthlyData, weeklyData, dailyData, aptLabel, accentColor = '#111111',
 }: ComparisonChartProps) {
@@ -55,13 +49,11 @@ export function ComparisonChart({
     : undefined
 
   return (
-    <div className="rounded-md border border-stone-200 bg-white p-5 shadow-sm">
+    <div className="rounded-md border border-stone-200 bg-white px-3 py-4 shadow-sm">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
-          <p className="text-[11px] text-stone-400">
-            {aptLabel} vs. building average · {GRAN_SUBTITLE[gran]} · {unit}
-          </p>
+          <p className="text-[11px] text-stone-400">{aptLabel} vs. building average</p>
         </div>
         <div className="flex shrink-0 gap-0.5 rounded-md border border-stone-200 p-0.5">
           {(Object.keys(GRAN_LABELS) as Granularity[]).map(g => (
@@ -70,7 +62,7 @@ export function ComparisonChart({
               type="button"
               onClick={() => setGran(g)}
               className={cn(
-                'rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+                'rounded px-2.5 py-1 text-[11px] font-medium transition-colors',
                 gran === g ? 'bg-stone-900 text-white' : 'text-stone-400 hover:text-stone-700',
               )}
             >
@@ -79,9 +71,15 @@ export function ComparisonChart({
           ))}
         </div>
       </div>
-      <div className="h-52">
+      <div className="relative h-52">
+        <span
+          className="pointer-events-none absolute right-1 -top-3 z-10 text-[10px] font-medium tabular-nums"
+          style={{ color: accentColor }}
+        >
+          avg {avgVal} {unit}
+        </span>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} barCategoryGap={gran === 'weekly' ? '10%' : '32%'} barGap={2}>
+          <BarChart data={data} barCategoryGap={gran === 'weekly' ? '10%' : '32%'} barGap={2} margin={{ left: -4, right: 4, top: 4, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
             <XAxis
               dataKey="label"
@@ -94,7 +92,7 @@ export function ComparisonChart({
               tick={{ fontSize: 11, fill: '#78716c' }}
               axisLine={false}
               tickLine={false}
-              width={40}
+              width={36}
             />
             <Tooltip
               contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e7e5e4', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}
@@ -107,7 +105,6 @@ export function ComparisonChart({
               stroke={accentColor}
               strokeDasharray="5 3"
               strokeWidth={1.5}
-              label={{ value: `avg ${avgVal} ${unit}`, position: 'insideTopRight', fontSize: 10, fill: accentColor, dy: -6 }}
             />
             <Bar dataKey="Apartment" name={aptLabel} fill={accentColor} radius={[2, 2, 0, 0]} />
             <Bar dataKey="Average" name="Bldg. average" fill="#d6d3d1" radius={[2, 2, 0, 0]} />
