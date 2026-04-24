@@ -149,7 +149,7 @@ export function SiteHeader({
               aria-label="Search buildings"
               aria-autocomplete="list"
               aria-expanded={open}
-              className="h-10 border-stone-200 bg-stone-50 pl-10 text-sm text-stone-950 placeholder:text-stone-400 focus-visible:border-[#E30613] focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-10 border-stone-200 bg-stone-50 pl-10 text-sm text-stone-950 placeholder:text-stone-400 focus-visible:border-brand focus-visible:ring-0 focus-visible:ring-offset-0"
             />
 
             {open && (
@@ -187,7 +187,7 @@ export function SiteHeader({
           <label className="w-52 shrink-0">
             <span className="sr-only">Select building</span>
             <select
-              className="h-10 w-full rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-800 shadow-sm outline-none transition focus:border-[#E30613] focus:ring-0"
+              className="h-10 w-full rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-800 shadow-sm outline-none transition focus:border-brand focus:ring-0"
               value={selectedPropertyId ?? ''}
               onChange={(e) => {
                 const val = e.target.value

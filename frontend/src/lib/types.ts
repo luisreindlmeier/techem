@@ -37,3 +37,84 @@ export type ForecastResponse = {
   horizon_days: number
   points: ForecastPoint[]
 }
+
+// ---------- Building-data domain (mirrors backend schemas) ----------
+
+export type PropertyStats = {
+  property_id: number
+  annual_energy_kwh: number
+  annual_cost_eur: number
+  annual_co2_kg: number
+}
+
+export type RoomPoint = {
+  name: string
+  sqm: number
+  annual_energy_kwh: number
+  building_avg_kwh: number
+}
+
+export type UnitSummary = {
+  label: string
+  floor: number
+  apt: string
+  annual_energy_kwh: number
+  rooms: RoomPoint[]
+}
+
+export type BuildingOverview = {
+  property_id: number
+  units: UnitSummary[]
+}
+
+export type MonthlyPoint = {
+  month: string
+  energy_kwh: number
+  cost_eur: number
+  co2_kg: number
+}
+
+export type GranularPoint = {
+  label: string
+  apartment: number
+  average: number
+}
+
+export type UnitHistoryResponse = {
+  property_id: number
+  floor: number
+  apt: string
+  cost_per_kwh_eur: number
+  emission_factor_kg_per_kwh: number
+  monthly_apartment: MonthlyPoint[]
+  monthly_average: MonthlyPoint[]
+  weekly: GranularPoint[]
+  daily: GranularPoint[]
+}
+
+export type UnitForecastResponse = {
+  property_id: number
+  floor: number
+  apt: string
+  model: string
+  horizon_days: number
+  points: ForecastPoint[]
+}
+
+export type ForecastGranularity = 'monthly' | 'weekly' | 'daily'
+
+export type ForecastTimelinePoint = {
+  label: string
+  actual: number | null
+  forecast: number | null
+}
+
+export type ForecastTimelineResponse = {
+  property_id: number
+  floor: number
+  apt: string
+  granularity: ForecastGranularity
+  model: string
+  points: ForecastTimelinePoint[]
+  cutoff_label: string
+}

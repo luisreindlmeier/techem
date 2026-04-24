@@ -12,7 +12,9 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
-import type { GranularPoint } from '@/data/buildingData'
+import { CHART, TOOLTIP_CONTENT_STYLE } from '@/lib/chartColors'
+
+type GranularPoint = { label: string; Apartment: number; Average: number }
 
 type Granularity = 'monthly' | 'weekly' | 'daily'
 
@@ -33,16 +35,21 @@ const GRAN_LABELS: Record<Granularity, string> = {
 }
 
 export function ComparisonChart({
-  title, unit, monthlyData, weeklyData, dailyData, aptLabel, accentColor = '#111111',
+  title, unit, monthlyData, weeklyData, dailyData, aptLabel, accentColor = CHART.primary,
 }: ComparisonChartProps) {
   const [gran, setGran] = useState<Granularity>('monthly')
 
   const data = gran === 'monthly' ? monthlyData : gran === 'weekly' ? weeklyData : dailyData
 
-  const avgVal = useMemo(
-    () => Math.round(data.reduce((s, d) => s + d.Apartment, 0) / data.length),
+  const avgApt = useMemo(
+    () => data.length === 0 ? 0 : Math.round(data.reduce((s, d) => s + d.Apartment, 0) / data.length),
     [data],
   )
+  const avgBldg = useMemo(
+    () => data.length === 0 ? 0 : Math.round(data.reduce((s, d) => s + d.Average, 0) / data.length),
+    [data],
+  )
+  const BLDG_AVG_COLOR = '#78716c'
 
   const tickFormatter = gran === 'weekly'
     ? (_val: string, idx: number) => (idx % 4 === 0 ? `W${idx + 1}` : '')
@@ -72,42 +79,51 @@ export function ComparisonChart({
         </div>
       </div>
       <div className="relative h-52">
-        <span
-          className="pointer-events-none absolute right-1 -top-3 z-10 text-[10px] font-medium tabular-nums"
-          style={{ color: accentColor }}
-        >
-          avg {avgVal} {unit}
-        </span>
+        <div className="pointer-events-none absolute right-1 -top-3 z-10 flex flex-col items-end gap-0.5 text-[10px] font-medium tabular-nums leading-tight">
+          <span style={{ color: accentColor }}>
+            avg {avgApt} {unit}
+          </span>
+          <span style={{ color: BLDG_AVG_COLOR }}>
+            bldg {avgBldg} {unit}
+          </span>
+        </div>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} barCategoryGap={gran === 'weekly' ? '10%' : '32%'} barGap={2} margin={{ left: -4, right: 4, top: 4, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART.grid} vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: '#78716c' }}
+              tick={{ fontSize: 11, fill: CHART.muted }}
               axisLine={false}
               tickLine={false}
               tickFormatter={tickFormatter}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: '#78716c' }}
+              tick={{ fontSize: 11, fill: CHART.muted }}
               axisLine={false}
               tickLine={false}
               width={36}
             />
             <Tooltip
-              contentStyle={{ fontSize: 12, borderRadius: 6, border: '1px solid #e7e5e4', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}
+              contentStyle={{ ...TOOLTIP_CONTENT_STYLE, fontSize: 12 }}
               formatter={((value: number) => [`${value} ${unit}`, '']) as any}
-              cursor={{ fill: '#f5f5f4' }}
+              cursor={{ fill: CHART.cursor }}
             />
             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
             <ReferenceLine
-              y={avgVal}
+              y={avgBldg}
+              stroke={BLDG_AVG_COLOR}
+              strokeDasharray="3 4"
+              strokeWidth={1}
+              strokeOpacity={0.7}
+            />
+            <ReferenceLine
+              y={avgApt}
               stroke={accentColor}
               strokeDasharray="5 3"
               strokeWidth={1.5}
             />
             <Bar dataKey="Apartment" name={aptLabel} fill={accentColor} radius={[2, 2, 0, 0]} />
-            <Bar dataKey="Average" name="Bldg. average" fill="#d6d3d1" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Average" name="Bldg. average" fill={CHART.secondary} radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

@@ -1,4 +1,14 @@
-import type { ForecastResponse, OverviewResponse, PropertyItem } from './types'
+import type {
+  BuildingOverview,
+  ForecastGranularity,
+  ForecastResponse,
+  ForecastTimelineResponse,
+  OverviewResponse,
+  PropertyItem,
+  PropertyStats,
+  UnitForecastResponse,
+  UnitHistoryResponse,
+} from './types'
 import { supabase } from './supabase'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
@@ -17,6 +27,30 @@ export function getOverview(): Promise<OverviewResponse> {
 
 export function getForecast(days = 30): Promise<ForecastResponse> {
   return fetchJson<ForecastResponse>(`/api/v1/forecast?horizon_days=${days}`)
+}
+
+export function getAllPropertyStats(): Promise<PropertyStats[]> {
+  return fetchJson<PropertyStats[]>('/api/v1/properties/stats')
+}
+
+export function getBuildingOverview(propertyId: number): Promise<BuildingOverview> {
+  return fetchJson<BuildingOverview>(`/api/v1/properties/${propertyId}/overview`)
+}
+
+export function getUnitHistory(propertyId: number, floor: number, aptIdx: number): Promise<UnitHistoryResponse> {
+  return fetchJson<UnitHistoryResponse>(`/api/v1/properties/${propertyId}/units/${floor}/${aptIdx}/history`)
+}
+
+export function getUnitForecast(propertyId: number, floor: number, aptIdx: number): Promise<UnitForecastResponse> {
+  return fetchJson<UnitForecastResponse>(`/api/v1/properties/${propertyId}/units/${floor}/${aptIdx}/forecast`)
+}
+
+export function getUnitForecastTimeline(
+  propertyId: number, floor: number, aptIdx: number, granularity: ForecastGranularity,
+): Promise<ForecastTimelineResponse> {
+  return fetchJson<ForecastTimelineResponse>(
+    `/api/v1/properties/${propertyId}/units/${floor}/${aptIdx}/forecast-timeline?granularity=${granularity}`,
+  )
 }
 
 function mapPropertyRow(row: Record<string, unknown>, hasGeometry: boolean): PropertyItem {

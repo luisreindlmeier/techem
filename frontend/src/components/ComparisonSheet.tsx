@@ -1,24 +1,37 @@
 import { useEffect, useRef } from 'react'
 import lottie, { type AnimationItem } from 'lottie-web'
 import { cn } from '@/lib/utils'
-import type { PropertyItem } from '@/lib/types'
+import type { PropertyItem, PropertyStats } from '@/lib/types'
 import { buildingImageUrl } from '@/lib/buildingImages'
+import { usePropertyStatsMap } from '@/lib/propertyStats'
 
 const X_FRAME = 45
 
-const ROWS: { label: string; value: (p: PropertyItem) => string }[] = [
+function formatNum(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `${(v / 1_000).toFixed(1)}k`
+  return v.toFixed(0)
+}
+
+function statValue(stats: PropertyStats | undefined, key: 'kwh' | 'eur' | 'co2'): string {
+  if (!stats) return '—'
+  if (key === 'kwh') return `${formatNum(stats.annual_energy_kwh)} kWh`
+  if (key === 'eur') return `€${formatNum(stats.annual_cost_eur)}`
+  return `${formatNum(stats.annual_co2_kg)} kg`
+}
+
+const ROWS: {
+  label: string
+  value: (p: PropertyItem, statsById: Record<number, PropertyStats>) => string
+}[] = [
   { label: 'City',          value: (p) => p.city },
   { label: 'ZIP',           value: (p) => p.zipcode },
   { label: 'Energy Source', value: (p) => p.energysource },
   { label: 'Units',         value: (p) => String(p.unit_count) },
-  { label: 'Consumption',   value: (p) => `${fakeStats(p.id).kwh} kWh` },
-  { label: 'CO₂ Emission',  value: (p) => `${fakeStats(p.id).co2} kg` },
+  { label: 'Annual Energy', value: (p, s) => statValue(s[p.id], 'kwh') },
+  { label: 'Annual Cost',   value: (p, s) => statValue(s[p.id], 'eur') },
+  { label: 'Annual CO₂',    value: (p, s) => statValue(s[p.id], 'co2') },
 ]
-
-function fakeStats(id: number) {
-  const base = ((id * 7919) % 800) + 400
-  return { kwh: Math.round(base * 100) / 10, co2: Math.round(base * 0.22 * 10) / 10 }
-}
 
 
 const LABEL_W = 152
@@ -29,6 +42,7 @@ type Props = { properties: PropertyItem[]; onClose: () => void }
 export function ComparisonSheet({ properties, onClose }: Props) {
   const n          = properties.length
   const scrollable = n > 4
+  const statsById  = usePropertyStatsMap()
 
   const closeHostRef = useRef<HTMLSpanElement | null>(null)
   const closeAnimRef = useRef<AnimationItem | null>(null)
@@ -99,7 +113,7 @@ export function ComparisonSheet({ properties, onClose }: Props) {
             colIdx > 0 && 'border-l border-stone-200',
           )}
         >
-          {row.value(p)}
+          {row.value(p, statsById)}
         </div>,
       )
     })

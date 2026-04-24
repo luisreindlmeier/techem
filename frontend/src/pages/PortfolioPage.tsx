@@ -10,6 +10,7 @@ export function PortfolioPage({
   onSelectProperty,
   resetKey,
   openDetailId,
+  onCloseDetail,
   properties,
   propertiesLoading,
   propertiesError,
@@ -18,6 +19,7 @@ export function PortfolioPage({
   onSelectProperty?: (id: number | null) => void
   resetKey?: number
   openDetailId?: number | null
+  onCloseDetail?: () => void
   properties: PropertyItem[]
   propertiesLoading: boolean
   propertiesError: string | null
@@ -68,7 +70,10 @@ export function PortfolioPage({
     return (
       <BuildingDetailPage
         property={detailProperty}
-        onBack={() => setDetailProperty(null)}
+        onBack={() => {
+          setDetailProperty(null)
+          onCloseDetail?.()
+        }}
       />
     )
   }

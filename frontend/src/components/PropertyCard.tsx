@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PropertyItem } from '@/lib/types'
 import { buildingImageUrl } from '@/lib/buildingImages'
+import { usePropertyStats } from '@/lib/propertyStats'
 
 type PropertyCardProps = {
   property: PropertyItem
@@ -10,7 +11,6 @@ type PropertyCardProps = {
   onClick: () => void
   onDetails?: () => void
 }
-
 
 const SOURCE_COLORS: Record<string, string> = {
   'Natural Gas':     'bg-amber-50 text-amber-700 border-amber-200',
@@ -20,18 +20,20 @@ const SOURCE_COLORS: Record<string, string> = {
   Pellets:           'bg-lime-50 text-lime-700 border-lime-200',
 }
 
-// Deterministic fake stats seeded by property id
-function fakeStats(id: number) {
-  const base = ((id * 7919) % 800) + 400
-  return {
-    kwh:   Math.round(base * 100) / 10,
-    co2:   Math.round(base * 0.22 * 10) / 10,
-  }
+function formatKwh(v: number): string {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000)     return `${(v / 1_000).toFixed(1)}k`
+  return v.toFixed(0)
+}
+
+function formatKg(v: number): string {
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}t`
+  return v.toFixed(0)
 }
 
 export function PropertyCard({ property, selected, onClick, onDetails }: PropertyCardProps) {
   const badgeClass = SOURCE_COLORS[property.energysource] ?? 'bg-stone-100 text-stone-600 border-stone-300'
-  const stats = fakeStats(property.id)
+  const stats = usePropertyStats(property.id)
 
   return (
     <button type="button" onClick={onClick} className="w-full text-left">
@@ -39,7 +41,7 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
         className={cn(
           'overflow-hidden transition-all duration-150 hover:shadow-md rounded-md',
           selected
-            ? 'border-[#E30613] ring-1 ring-[#E30613] shadow-sm'
+            ? 'border-brand ring-1 ring-brand shadow-sm'
             : 'border-stone-200 shadow-sm hover:border-stone-300',
         )}
       >
@@ -68,28 +70,34 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
 
         <CardContent className="px-4 py-3">
           {/* Name / city + zipcode */}
-          <p className={cn('text-sm font-semibold leading-snug', selected ? 'text-[#E30613]' : 'text-stone-950')}>
+          <p className={cn('text-sm font-semibold leading-snug', selected ? 'text-brand' : 'text-stone-950')}>
             {property.name ?? property.city}
           </p>
           <p className="mt-0.5 text-xs text-stone-500">
             <span className="font-medium text-stone-400">ZIP</span> {property.zipcode}
           </p>
 
-          {/* Stats row */}
+          {/* Stats row — annual from real readings / weather model */}
           <div className="mt-3 flex gap-3 border-t border-stone-100 pt-3">
             <div className="flex-1">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Consumption</p>
-              <p className="mt-0.5 text-sm font-semibold text-stone-900">{stats.kwh} <span className="text-xs font-normal text-stone-400">kWh</span></p>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Annual</p>
+              <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                {stats ? formatKwh(stats.annual_energy_kwh) : '—'}
+                <span className="text-xs font-normal text-stone-400"> kWh</span>
+              </p>
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">CO₂</p>
-              <p className="mt-0.5 text-sm font-semibold text-stone-900">{stats.co2} <span className="text-xs font-normal text-stone-400">kg</span></p>
+              <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                {stats ? formatKg(stats.annual_co2_kg) : '—'}
+                <span className="text-xs font-normal text-stone-400"> kg</span>
+              </p>
             </div>
           </div>
 
           <Button
             size="sm"
-            className="mt-3 h-7 w-full rounded-md bg-[#E30613] text-xs text-white hover:bg-[#c00510]"
+            className="mt-3 h-7 w-full rounded-md bg-brand text-xs text-white hover:bg-brand-hover"
             onClick={(e) => { e.stopPropagation(); onDetails?.() }}
           >
             View Object

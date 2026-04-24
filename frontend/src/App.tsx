@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react'
 import { SiteHeader } from './components/SiteHeader'
 import { SidebarNav, type Page } from './components/SidebarNav'
 import { PortfolioPage } from './pages/PortfolioPage'
+import { McpPage } from './pages/McpPage'
 import { getProperties } from './lib/api'
+import { PropertyStatsProvider } from './lib/propertyStats'
 import type { PropertyItem } from './lib/types'
 
 function App() {
@@ -26,17 +28,23 @@ function App() {
   }, [])
 
   function handleNavigate(page: Page) {
-    if (page === 'portfolio') setPortfolioResetKey((k) => k + 1)
+    if (page === 'portfolio') {
+      setPortfolioResetKey((k) => k + 1)
+      setOpenDetailId(null)
+    }
     setActivePage(page)
   }
 
+  const sidebarActivePage: Page = openDetailId !== null ? 'analytics' : activePage
+
   return (
+    <PropertyStatsProvider>
     <div className="h-screen overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f8f8f7_100%)] text-stone-950">
       <div className="flex h-full">
         <SidebarNav
           isMobileOpen={mobileSidebarOpen}
           onCloseMobile={() => setMobileSidebarOpen(false)}
-          activePage={activePage}
+          activePage={sidebarActivePage}
           onNavigate={handleNavigate}
         />
 
@@ -59,10 +67,13 @@ function App() {
                 onSelectProperty={setSelectedPropertyId}
                 resetKey={portfolioResetKey}
                 openDetailId={openDetailId}
+                onCloseDetail={() => setOpenDetailId(null)}
                 properties={properties}
                 propertiesLoading={propertiesLoading}
                 propertiesError={propertiesError}
               />
+            ) : activePage === 'mcp' ? (
+              <McpPage />
             ) : (
               <div className="flex flex-1 items-center justify-center text-sm text-stone-400">
                 {activePage}
@@ -72,6 +83,7 @@ function App() {
         </div>
       </div>
     </div>
+    </PropertyStatsProvider>
   )
 }
 

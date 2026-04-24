@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import {
   Cell,
@@ -11,34 +11,30 @@ import {
 
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import type { PropertyItem } from '@/lib/types'
+import type {
+  BuildingOverview,
+  ForecastGranularity,
+  ForecastTimelineResponse,
+  PropertyItem,
+  UnitHistoryResponse,
+  UnitSummary,
+} from '@/lib/types'
+import {
+  getBuildingOverview,
+  getUnitForecastTimeline,
+  getUnitHistory,
+} from '@/lib/api'
 import { ComparisonChart } from '@/components/ComparisonChart'
 import { FloorPlanView } from '@/components/FloorPlanView'
 import { ForecastChart } from '@/components/ForecastChart'
 import { IsometricBuilding } from '@/components/IsometricBuilding'
-import {
-  APT_LABELS,
-  floorsForProperty,
-  getApartmentData,
-  getBuildingAverage,
-  getAllUnitsAnnualEnergy,
-  getUnitForecast,
-  getWeeklyComparison,
-  getDailyComparison,
-  type UnitSummary,
-} from '@/data/buildingData'
+import { APT_LABELS, UNITS_PER_FLOOR } from '@/lib/layoutConfig'
+import { BRAND, PIE_PALETTE, TOOLTIP_CONTENT_STYLE } from '@/lib/chartColors'
 
 type BuildingDetailPageProps = {
   property: PropertyItem
   onBack: () => void
 }
-
-const PIE_PALETTE = [
-  '#1c1917', '#E30613', '#57534e', '#a8a29e',
-  '#292524', '#78716c', '#c8c4c3', '#44403c',
-  '#3d3533', '#9d9a99', '#6d6360', '#0c0a09',
-  '#bcb8b7', '#8a8078', '#d6d3d1', '#e7e5e4',
-]
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -69,7 +65,7 @@ function explodedSlice(props: Record<string, number> & { fill: string }) {
 
 function UnitPieChart({ units }: { units: UnitSummary[] }) {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined)
-  const total = units.reduce((s, u) => s + u.annualEnergy, 0)
+  const total = units.reduce((s, u) => s + u.annual_energy_kwh, 0)
   return (
     <div className="flex flex-col">
       <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
@@ -80,7 +76,7 @@ function UnitPieChart({ units }: { units: UnitSummary[] }) {
           <RechartsPieChart>
             <Pie
               data={units}
-              dataKey="annualEnergy"
+              dataKey="annual_energy_kwh"
               nameKey="label"
               cx="50%"
               cy="48%"
@@ -96,14 +92,14 @@ function UnitPieChart({ units }: { units: UnitSummary[] }) {
             </Pie>
             <RechartsTooltip
               formatter={((value: number, name: string) => [`${value.toLocaleString()} kWh`, `Unit ${name}`]) as any}
-              contentStyle={{ fontSize: 11, borderRadius: 6, border: '1px solid #e7e5e4', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}
+              contentStyle={TOOLTIP_CONTENT_STYLE}
             />
           </RechartsPieChart>
         </ResponsiveContainer>
       </div>
       <div className="mt-0.5 text-center">
         <p className="text-sm font-semibold text-stone-900">{units.length} units</p>
-        <p className="text-xs text-stone-400">{total.toLocaleString()} kWh/yr</p>
+        <p className="text-xs text-stone-400">{Math.round(total).toLocaleString()} kWh/yr</p>
       </div>
     </div>
   )
@@ -112,20 +108,23 @@ function UnitPieChart({ units }: { units: UnitSummary[] }) {
 const DIV = 'border-r border-stone-200'
 
 function ConsumerTable({ title, units, highlight }: { title: string; units: UnitSummary[]; highlight: 'high' | 'low' }) {
-  const roomNames = units[0]?.rooms.map(r => r.name) ?? []
+  const maxRooms = Math.min(6, Math.max(0, ...units.map(u => u.rooms.length)))
+  const headerNames = Array.from({ length: maxRooms }, (_, i) => {
+    const fromUnit = units.find(u => u.rooms[i])?.rooms[i]?.name
+    return fromUnit ?? `Room ${i + 1}`
+  })
   return (
     <div className="min-w-0">
       <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">{title}</p>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-xs">
           <thead>
-            {/* Row 1: group headers */}
             <tr className="border-b border-stone-200">
               <th className={cn('pb-1.5 pr-3 text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-stone-400', DIV)}>
                 Unit
               </th>
-              {roomNames.map(name => (
-                <th key={name} colSpan={2} className={cn('pb-1.5 px-2 text-center text-[10px] font-semibold uppercase tracking-[0.06em] text-stone-400 whitespace-nowrap', DIV)}>
+              {headerNames.map((name, i) => (
+                <th key={`${name}-${i}`} colSpan={2} className={cn('pb-1.5 px-2 text-center text-[10px] font-semibold uppercase tracking-[0.06em] text-stone-400 whitespace-nowrap', DIV)}>
                   {name}
                 </th>
               ))}
@@ -133,13 +132,12 @@ function ConsumerTable({ title, units, highlight }: { title: string; units: Unit
                 Total
               </th>
             </tr>
-            {/* Row 2: sub-column labels */}
             <tr className="border-b border-stone-100">
               <th aria-label="unit" className={DIV} />
-              {roomNames.map(name => (
+              {headerNames.map((name, i) => (
                 <>
-                  <th key={`${name}-sqm`} className="pb-1 pl-2 pr-1 text-right text-[9px] font-normal text-stone-300 whitespace-nowrap">m²</th>
-                  <th key={`${name}-kwh`} className={cn('pb-1 pl-1 pr-2 text-right text-[9px] font-normal text-stone-300 whitespace-nowrap', DIV)}>kWh</th>
+                  <th key={`${name}-${i}-sqm`} className="pb-1 pl-2 pr-1 text-right text-[9px] font-normal text-stone-300 whitespace-nowrap">m²</th>
+                  <th key={`${name}-${i}-kwh`} className={cn('pb-1 pl-1 pr-2 text-right text-[9px] font-normal text-stone-300 whitespace-nowrap', DIV)}>kWh</th>
                 </>
               ))}
               <th className="pb-1 pl-3 text-right text-[9px] font-normal text-stone-300 whitespace-nowrap">kWh/yr</th>
@@ -149,21 +147,24 @@ function ConsumerTable({ title, units, highlight }: { title: string; units: Unit
             {units.map((unit) => (
               <tr key={unit.label}>
                 <td className={cn('py-1.5 pr-3 font-semibold text-stone-900', DIV)}>{unit.label}</td>
-                {unit.rooms.map(room => (
-                  <>
-                    <td key={`${room.name}-sqm`} className="py-1.5 pl-2 pr-1 text-right tabular-nums text-[10px] text-stone-400 whitespace-nowrap">
-                      {room.sqm}
-                    </td>
-                    <td key={`${room.name}-kwh`} className={cn('py-1.5 pl-1 pr-2 text-right tabular-nums text-stone-700 whitespace-nowrap', DIV)}>
-                      {room.annualEnergy.toLocaleString()}
-                    </td>
-                  </>
-                ))}
+                {Array.from({ length: maxRooms }, (_, i) => {
+                  const room = unit.rooms[i]
+                  return (
+                    <>
+                      <td key={`${unit.label}-${i}-sqm`} className="py-1.5 pl-2 pr-1 text-right tabular-nums text-[10px] text-stone-400 whitespace-nowrap">
+                        {room ? room.sqm : '—'}
+                      </td>
+                      <td key={`${unit.label}-${i}-kwh`} className={cn('py-1.5 pl-1 pr-2 text-right tabular-nums text-stone-700 whitespace-nowrap', DIV)}>
+                        {room ? Math.round(room.annual_energy_kwh).toLocaleString() : '—'}
+                      </td>
+                    </>
+                  )
+                })}
                 <td className={cn(
                   'py-1.5 pl-3 text-right tabular-nums font-semibold whitespace-nowrap',
-                  highlight === 'high' ? 'text-[#E30613]' : 'text-emerald-600',
+                  highlight === 'high' ? 'text-brand' : 'text-emerald-600',
                 )}>
-                  {unit.annualEnergy.toLocaleString()}
+                  {Math.round(unit.annual_energy_kwh).toLocaleString()}
                 </td>
               </tr>
             ))}
@@ -175,88 +176,132 @@ function ConsumerTable({ title, units, highlight }: { title: string; units: Unit
 }
 
 export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps) {
-  const totalFloors = floorsForProperty(property.unit_count)
+  const totalFloors = Math.max(1, Math.ceil(property.unit_count / UNITS_PER_FLOOR))
 
   const [selectedFloor, setSelectedFloor] = useState(1)
   const [selectedAptIdx, setSelectedAptIdx] = useState(0)
 
-  const aptData = useMemo(
-    () => getApartmentData(property.id, selectedFloor, selectedAptIdx + 1),
-    [property.id, selectedFloor, selectedAptIdx],
-  )
+  const [overview, setOverview]       = useState<BuildingOverview | null>(null)
+  const [overviewError, setOvError]   = useState<string | null>(null)
 
-  const avgData = useMemo(
-    () => getBuildingAverage(property.id, property.unit_count),
-    [property.id, property.unit_count],
-  )
+  const [history, setHistory]         = useState<UnitHistoryResponse | null>(null)
+  const [historyLoading, setHLoading] = useState(true)
+  const [historyError, setHError]     = useState<string | null>(null)
 
-  const allUnits = useMemo(
-    () => getAllUnitsAnnualEnergy(property.id, property.unit_count),
-    [property.id, property.unit_count],
-  )
+  const [forecastTimeline, setForecastTimeline] = useState<ForecastTimelineResponse | null>(null)
+  const [forecastError, setFError]              = useState<string | null>(null)
+  const [forecastGran, setForecastGran]         = useState<ForecastGranularity>('monthly')
+
+  // Load overview once per property
+  useEffect(() => {
+    setOverview(null); setOvError(null)
+    getBuildingOverview(property.id)
+      .then(setOverview)
+      .catch((err: unknown) => setOvError(err instanceof Error ? err.message : 'Failed to load'))
+  }, [property.id])
+
+  // Load history whenever unit selection changes
+  useEffect(() => {
+    setHLoading(true); setHError(null)
+    const aptIdx = selectedAptIdx + 1
+    getUnitHistory(property.id, selectedFloor, aptIdx)
+      .then(setHistory)
+      .catch((err: unknown) => setHError(err instanceof Error ? err.message : 'Failed to load'))
+      .finally(() => setHLoading(false))
+  }, [property.id, selectedFloor, selectedAptIdx])
+
+  // Load forecast timeline whenever unit selection OR granularity changes
+  useEffect(() => {
+    setForecastTimeline(null); setFError(null)
+    const aptIdx = selectedAptIdx + 1
+    getUnitForecastTimeline(property.id, selectedFloor, aptIdx, forecastGran)
+      .then(setForecastTimeline)
+      .catch((err: unknown) => setFError(err instanceof Error ? err.message : 'Failed to load'))
+  }, [property.id, selectedFloor, selectedAptIdx, forecastGran])
+
+  const allUnits = overview?.units ?? []
 
   const top5 = useMemo(
-    () => [...allUnits].sort((a, b) => b.annualEnergy - a.annualEnergy).slice(0, 5),
+    () => [...allUnits].sort((a, b) => b.annual_energy_kwh - a.annual_energy_kwh).slice(0, 5),
     [allUnits],
   )
-
-  const selectedUnitData = allUnits.find(u => u.floor === selectedFloor && u.apt === APT_LABELS[selectedAptIdx])
-  const selectedUnitRooms = selectedUnitData?.rooms ?? []
-  const roomMaxEnergy = selectedUnitRooms.length > 0 ? Math.max(...selectedUnitRooms.map(r => r.annualEnergy)) : 1
-
   const bottom5 = useMemo(
-    () => [...allUnits].sort((a, b) => a.annualEnergy - b.annualEnergy).slice(0, 5),
+    () => [...allUnits].sort((a, b) => a.annual_energy_kwh - b.annual_energy_kwh).slice(0, 5),
     [allUnits],
   )
+
+  const selectedUnit = allUnits.find(u => u.floor === selectedFloor && u.apt === APT_LABELS[selectedAptIdx])
+  const selectedRooms = selectedUnit?.rooms ?? []
+  const roomMaxEnergy = selectedRooms.length > 0
+    ? Math.max(
+        ...selectedRooms.map(r => r.annual_energy_kwh),
+        ...selectedRooms.map(r => r.building_avg_kwh),
+      )
+    : 1
 
   const aptLabel = `${selectedFloor}${APT_LABELS[selectedAptIdx]}`
 
-  const energyData = aptData.map((d, i) => ({ label: d.month, Apartment: d.energy_kwh, Average: avgData[i].energy_kwh }))
-  const costData   = aptData.map((d, i) => ({ label: d.month, Apartment: d.cost_eur,   Average: avgData[i].cost_eur   }))
-  const co2Data    = aptData.map((d, i) => ({ label: d.month, Apartment: d.co2_kg,     Average: avgData[i].co2_kg     }))
+  // Chart data derived from history response
+  const energyData = history?.monthly_apartment.map((d, i) => ({
+    label: d.month, Apartment: d.energy_kwh, Average: history.monthly_average[i]?.energy_kwh ?? 0,
+  })) ?? []
+  const costData = history?.monthly_apartment.map((d, i) => ({
+    label: d.month, Apartment: d.cost_eur, Average: history.monthly_average[i]?.cost_eur ?? 0,
+  })) ?? []
+  const co2Data = history?.monthly_apartment.map((d, i) => ({
+    label: d.month, Apartment: d.co2_kg, Average: history.monthly_average[i]?.co2_kg ?? 0,
+  })) ?? []
 
-  const weeklyRaw = useMemo(
-    () => getWeeklyComparison(property.id, selectedFloor, selectedAptIdx + 1, property.unit_count),
-    [property.id, property.unit_count, selectedFloor, selectedAptIdx],
-  )
-  const weeklyEnergyData = weeklyRaw
-  const weeklyCostData   = weeklyRaw.map(d => ({ ...d, Apartment: Math.round(d.Apartment * 0.19 * 10) / 10, Average: Math.round(d.Average * 0.19 * 10) / 10 }))
-  const weeklyCo2Data    = weeklyRaw.map(d => ({ ...d, Apartment: Math.round(d.Apartment * 0.21 * 10) / 10, Average: Math.round(d.Average * 0.21 * 10) / 10 }))
+  const weeklyEnergyData = history?.weekly ?? []
+  const weeklyCostData = (history?.weekly ?? []).map(d => ({
+    ...d,
+    apartment: Math.round(d.apartment * (history?.cost_per_kwh_eur ?? 0) * 10) / 10,
+    average:   Math.round(d.average   * (history?.cost_per_kwh_eur ?? 0) * 10) / 10,
+  }))
+  const weeklyCo2Data = (history?.weekly ?? []).map(d => ({
+    ...d,
+    apartment: Math.round(d.apartment * (history?.emission_factor_kg_per_kwh ?? 0) * 10) / 10,
+    average:   Math.round(d.average   * (history?.emission_factor_kg_per_kwh ?? 0) * 10) / 10,
+  }))
 
-  const dailyRaw = useMemo(
-    () => getDailyComparison(property.id, selectedFloor, selectedAptIdx + 1, property.unit_count),
-    [property.id, property.unit_count, selectedFloor, selectedAptIdx],
-  )
-  const dailyEnergyData = dailyRaw
-  const dailyCostData   = dailyRaw.map(d => ({ ...d, Apartment: Math.round(d.Apartment * 0.19 * 10) / 10, Average: Math.round(d.Average * 0.19 * 10) / 10 }))
-  const dailyCo2Data    = dailyRaw.map(d => ({ ...d, Apartment: Math.round(d.Apartment * 0.21 * 10) / 10, Average: Math.round(d.Average * 0.21 * 10) / 10 }))
+  const dailyEnergyData = history?.daily ?? []
+  const dailyCostData = (history?.daily ?? []).map(d => ({
+    ...d,
+    apartment: Math.round(d.apartment * (history?.cost_per_kwh_eur ?? 0) * 10) / 10,
+    average:   Math.round(d.average   * (history?.cost_per_kwh_eur ?? 0) * 10) / 10,
+  }))
+  const dailyCo2Data = (history?.daily ?? []).map(d => ({
+    ...d,
+    apartment: Math.round(d.apartment * (history?.emission_factor_kg_per_kwh ?? 0) * 10) / 10,
+    average:   Math.round(d.average   * (history?.emission_factor_kg_per_kwh ?? 0) * 10) / 10,
+  }))
 
-  const forecastData = useMemo(
-    () => getUnitForecast(property.id, selectedFloor, selectedAptIdx + 1),
-    [property.id, selectedFloor, selectedAptIdx],
-  )
+  // ComparisonChart currently expects { label, Apartment, Average } (capitalized).
+  // Backend returns {label, apartment, average}. Remap once here.
+  function toChart(points: { label: string; apartment: number; average: number }[]) {
+    return points.map(p => ({ label: p.label, Apartment: p.apartment, Average: p.average }))
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Header */}
       <div className="flex items-center border-b border-stone-100 px-6 py-3">
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-stone-500 hover:bg-transparent hover:text-[#E30613]">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 text-stone-500 hover:bg-transparent hover:text-brand">
           <ArrowLeftIcon className="h-3.5 w-3.5" />
           Back
         </Button>
         <span className="mx-3 h-4 w-px bg-stone-200" />
-        <h1 className="text-sm font-semibold text-stone-900">{property.city}, {property.zipcode}</h1>
+        <h1 className="text-sm font-semibold text-stone-900">{property.name ?? property.city}, {property.zipcode}</h1>
       </div>
 
-      {/* Body: single scroll container so scrollbar lands at screen edge */}
       <div className="flex flex-1 overflow-y-auto overflow-x-hidden">
-
-        {/* Left: natural-height content drives overall scroll */}
         <div className="flex-1 min-w-0">
 
           {/* ── Overview ──────────────────────────────────────────── */}
           <section className="px-6 py-6">
             <SectionHeader title="Overview" />
+            {overviewError && (
+              <p className="mt-3 text-xs text-red-600">Couldn't load overview: {overviewError}</p>
+            )}
             <div className="mt-5 flex items-start gap-6">
               <div className="w-44 shrink-0">
                 <UnitPieChart units={allUnits} />
@@ -278,32 +323,34 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
             <div className="mt-5">
               <p className="mb-4 text-xs text-stone-400">
                 Unit {aptLabel} vs. building average · last 12 months
+                {historyLoading && ' · loading…'}
+                {historyError && ` · ${historyError}`}
               </p>
               <div className="grid grid-cols-3 gap-4">
                 <ComparisonChart
                   title="Energy Consumption"
                   unit="kWh"
                   monthlyData={energyData}
-                  weeklyData={weeklyEnergyData}
-                  dailyData={dailyEnergyData}
+                  weeklyData={toChart(weeklyEnergyData)}
+                  dailyData={toChart(dailyEnergyData)}
                   aptLabel={`Unit ${aptLabel}`}
                 />
                 <ComparisonChart
                   title="Heating Costs"
                   unit="€"
                   monthlyData={costData}
-                  weeklyData={weeklyCostData}
-                  dailyData={dailyCostData}
+                  weeklyData={toChart(weeklyCostData)}
+                  dailyData={toChart(dailyCostData)}
                   aptLabel={`Unit ${aptLabel}`}
                 />
                 <ComparisonChart
                   title="CO₂ Emissions"
                   unit="kg"
                   monthlyData={co2Data}
-                  weeklyData={weeklyCo2Data}
-                  dailyData={dailyCo2Data}
+                  weeklyData={toChart(weeklyCo2Data)}
+                  dailyData={toChart(dailyCo2Data)}
                   aptLabel={`Unit ${aptLabel}`}
-                  accentColor="#E30613"
+                  accentColor={BRAND.DEFAULT}
                 />
               </div>
             </div>
@@ -313,13 +360,23 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
           <section className="px-6 py-6">
             <SectionHeader title="Forecasts" />
             <div className="mt-5">
-              <ForecastChart data={forecastData} />
+              {forecastError && <p className="mb-2 text-xs text-red-600">Couldn't load forecast: {forecastError}</p>}
+              <ForecastChart
+                points={forecastTimeline?.points ?? []}
+                cutoffLabel={forecastTimeline?.cutoff_label ?? ''}
+                granularity={forecastGran}
+                onGranularityChange={setForecastGran}
+                subtitle={
+                  forecastTimeline
+                    ? `${forecastGran === 'monthly' ? 'This year' : 'This month'} · ${forecastTimeline.model} · actual to date + weather-driven forecast`
+                    : 'Weather-driven energy forecast · loading…'
+                }
+              />
             </div>
           </section>
 
         </div>
 
-        {/* Right: sticks to top while left content scrolls past */}
         <div className="sticky top-0 self-start flex w-[420px] shrink-0 flex-col gap-3 max-h-screen overflow-y-auto py-5 pl-12 pr-14">
 
           {/* Floor + Unit dropdowns */}
@@ -329,7 +386,7 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
               <select
                 value={selectedFloor}
                 onChange={(e) => setSelectedFloor(Number(e.target.value))}
-                className="h-8 w-full rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800 shadow-sm outline-none transition focus:border-[#E30613] focus:ring-0"
+                className="h-8 w-full rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800 shadow-sm outline-none transition focus:border-brand focus:ring-0"
               >
                 {Array.from({ length: totalFloors }, (_, i) => i + 1).map(f => (
                   <option key={f} value={f}>Floor {f}</option>
@@ -341,7 +398,7 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
               <select
                 value={selectedAptIdx}
                 onChange={(e) => setSelectedAptIdx(Number(e.target.value))}
-                className="h-8 w-full rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800 shadow-sm outline-none transition focus:border-[#E30613] focus:ring-0"
+                className="h-8 w-full rounded-md border border-stone-200 bg-white px-2 text-xs text-stone-800 shadow-sm outline-none transition focus:border-brand focus:ring-0"
               >
                 {APT_LABELS.map((label, i) => (
                   <option key={i} value={i}>Unit {selectedFloor}{label}</option>
@@ -352,7 +409,6 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
 
           <div className="h-px bg-stone-200" />
 
-          {/* Building view — floor labels are clickable */}
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
               Building View
@@ -364,7 +420,6 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
             />
           </div>
 
-          {/* Floor plan + room breakdown */}
           <div className="-mt-3">
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-stone-400">
               Floor {selectedFloor}
@@ -381,26 +436,35 @@ export function BuildingDetailPage({ property, onBack }: BuildingDetailPageProps
             <div className="divide-y divide-stone-200">
               <div className="flex items-center py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-stone-400">
                 <span className="flex-1">Room</span>
-                <span className="w-20 px-2 text-center">Usage</span>
+                <span className="w-16 px-1 text-center">Usage</span>
                 <span className="w-8 text-right">m²</span>
-                <span className="w-16 text-right">kWh/yr</span>
+                <span className="w-14 text-right">kWh/yr</span>
+                <span className="w-14 text-right">Avg</span>
               </div>
-              {selectedUnitRooms.map((room) => {
-                const barW = `${Math.round((room.annualEnergy / roomMaxEnergy) * 100)}%`
+              {selectedRooms.map((room) => {
+                const barW = `${Math.round((room.annual_energy_kwh / roomMaxEnergy) * 100)}%`
+                const avgW = `${Math.round((room.building_avg_kwh / roomMaxEnergy) * 100)}%`
                 return (
                   <div key={room.name} className="flex items-center py-1.5">
                     <span className="flex-1 text-[11px] font-medium text-stone-900">{room.name}</span>
-                    <div className="w-20 px-2">
-                      <div className="h-1 w-full overflow-hidden rounded-full bg-stone-100">
+                    <div className="w-16 px-1">
+                      <div className="relative h-1 w-full overflow-hidden rounded-full bg-stone-100">
                         <div
-                          className="bar-fill h-full rounded-full bg-[#E30613]"
+                          className="absolute inset-y-0 left-0 rounded-full bg-stone-300"
+                          {...{ style: { width: avgW } as React.CSSProperties }}
+                        />
+                        <div
+                          className="bar-fill absolute inset-y-0 left-0 rounded-full bg-brand"
                           {...{ style: { '--bar-w': barW } as React.CSSProperties }}
                         />
                       </div>
                     </div>
                     <span className="w-8 text-right text-[10px] tabular-nums text-stone-400">{room.sqm}</span>
-                    <span className="w-16 text-right text-[11px] font-medium tabular-nums text-stone-700">
-                      {room.annualEnergy.toLocaleString()}
+                    <span className="w-14 text-right text-[11px] font-medium tabular-nums text-stone-700">
+                      {Math.round(room.annual_energy_kwh).toLocaleString()}
+                    </span>
+                    <span className="w-14 text-right text-[10px] tabular-nums text-stone-400">
+                      {Math.round(room.building_avg_kwh).toLocaleString()}
                     </span>
                   </div>
                 )
