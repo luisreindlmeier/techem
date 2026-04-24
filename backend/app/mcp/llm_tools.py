@@ -257,6 +257,29 @@ def get_today() -> dict:
     }
 
 
+def get_active_alerts() -> dict:
+    """Return currently open portfolio alerts (mold risk, heating failure, etc.)."""
+    from app.services.dashboard import get_alerts as _get_dash_alerts  # local import to avoid circulars
+    resp = _get_dash_alerts()
+    return {
+        "count": len(resp.alerts),
+        "generated_at": resp.generated_at,
+        "alerts": [
+            {
+                "id":            a.id,
+                "type":          a.type,
+                "priority":      a.priority,
+                "property_id":   a.property_id,
+                "property_name": a.property_name,
+                "unit":          a.unit_id,
+                "title":         a.title,
+                "message":       a.message,
+            }
+            for a in resp.alerts
+        ],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Tool registry (name → callable) + OpenAI function schemas
 # ---------------------------------------------------------------------------
@@ -270,6 +293,7 @@ TOOL_FUNCTIONS = {
     "get_forecast": get_forecast,
     "generate_portfolio_report": generate_portfolio_report,
     "get_today": get_today,
+    "get_active_alerts": get_active_alerts,
 }
 
 TOOL_SOURCE_LABELS = {
@@ -281,6 +305,7 @@ TOOL_SOURCE_LABELS = {
     "get_forecast":              "HDD × linear forecast",
     "generate_portfolio_report": "Portfolio intelligence report",
     "get_today":                 "Demo calendar",
+    "get_active_alerts":         "Dashboard alert rules",
 }
 
 
@@ -378,6 +403,14 @@ OPENAI_TOOL_SCHEMAS = [
         "function": {
             "name": "get_today",
             "description": "Return the fixed 'today' date used by the forecasting pipeline. Useful for time-relative questions.",
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_active_alerts",
+            "description": "Return the currently open portfolio alerts — critical issues like mold risk, heating failure, or abnormal consumption. Call this when the user asks about urgent issues, what needs attention, inspection priorities, or anything 'alert'-shaped.",
             "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
         },
     },

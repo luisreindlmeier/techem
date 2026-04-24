@@ -400,5 +400,72 @@ def tool_generate_report() -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Tool 4: active alerts (inline answer)
+# ---------------------------------------------------------------------------
+
+def tool_active_alerts() -> dict:
+    from app.services.dashboard import get_alerts as _get_dash_alerts  # local import to avoid circulars
+    resp = _get_dash_alerts()
+    alerts = resp.alerts
+
+    if not alerts:
+        return {
+            "tool": "active_alerts",
+            "title": "Active portfolio alerts",
+            "blocks": [
+                McpBlock(kind="note", text="No active alerts right now — portfolio is quiet."),
+            ],
+            "report": None,
+            "stages": ["Reading alert rules…", "Scanning portfolio…"],
+        }
+
+    priority_tone = {"critical": "negative", "warning": "warning", "info": "neutral"}
+    critical_count = sum(1 for a in alerts if a.priority == "critical")
+    warning_count = sum(1 for a in alerts if a.priority == "warning")
+
+    stat_items = []
+    if critical_count:
+        stat_items.append(McpStat(label="Critical", value=str(critical_count), tone="negative"))
+    if warning_count:
+        stat_items.append(McpStat(label="Warning", value=str(warning_count), tone="warning"))
+    stat_items.append(McpStat(label="Total", value=str(len(alerts)), tone="neutral"))
+
+    list_items = [
+        f"{a.priority.upper()} · {a.property_name}{' · ' + a.unit_id if a.unit_id else ''} — {a.title}"
+        for a in alerts
+    ]
+
+    detail_items = [f"{a.property_name} · {a.title} — {a.message}" for a in alerts]
+
+    blocks: list[McpBlock] = [
+        McpBlock(
+            kind="paragraph",
+            text=(
+                f"{len(alerts)} alerts currently open across the portfolio — "
+                f"{critical_count} critical, {warning_count} warning. "
+                f"Lead with the critical ones; they affect tenant comfort and building integrity."
+            ),
+        ),
+        McpBlock(kind="stats", stats=stat_items),
+        McpBlock(kind="list", text="Priority queue", items=list_items),
+        McpBlock(kind="list", text="Details", items=detail_items),
+    ]
+
+    _ = priority_tone  # reserved for future per-block tone mapping
+    return {
+        "tool": "active_alerts",
+        "title": "Active portfolio alerts",
+        "blocks": blocks,
+        "report": None,
+        "stages": [
+            "Reading alert rules…",
+            "Scanning units for mold risk…",
+            "Checking for heating failures…",
+            "Ranking by priority…",
+        ],
+    }
+
+
 # Mark these so load_property_meta import stays (prevents unused linter churn when extending).
 _ = load_property_meta
