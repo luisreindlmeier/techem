@@ -12,6 +12,7 @@ function App() {
   const [activePage, setActivePage] = useState<Page>('portfolio')
   const [portfolioResetKey, setPortfolioResetKey] = useState(0)
   const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null)
+  const [openDetailId, setOpenDetailId]             = useState<number | null>(null)
 
   const [properties, setProperties] = useState<PropertyItem[]>([])
   const [propertiesLoading, setPropertiesLoading] = useState(true)
@@ -47,6 +48,7 @@ function App() {
             onToggleSidebar={() => setMobileSidebarOpen((current) => !current)}
             selectedPropertyId={selectedPropertyId}
             onPropertyChange={setSelectedPropertyId}
+            onOpenDetail={(id) => { setSelectedPropertyId(id); setOpenDetailId(id) }}
             properties={properties}
           />
 
@@ -56,6 +58,7 @@ function App() {
                 selectedPropertyId={selectedPropertyId}
                 onSelectProperty={setSelectedPropertyId}
                 resetKey={portfolioResetKey}
+                openDetailId={openDetailId}
                 properties={properties}
                 propertiesLoading={propertiesLoading}
                 propertiesError={propertiesError}

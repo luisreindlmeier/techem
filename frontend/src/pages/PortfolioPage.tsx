@@ -9,6 +9,7 @@ export function PortfolioPage({
   selectedPropertyId,
   onSelectProperty,
   resetKey,
+  openDetailId,
   properties,
   propertiesLoading,
   propertiesError,
@@ -16,6 +17,7 @@ export function PortfolioPage({
   selectedPropertyId: number | null
   onSelectProperty?: (id: number | null) => void
   resetKey?: number
+  openDetailId?: number | null
   properties: PropertyItem[]
   propertiesLoading: boolean
   propertiesError: string | null
@@ -41,6 +43,12 @@ export function PortfolioPage({
       return next
     })
   }, [selectedPropertyId])
+
+  useEffect(() => {
+    if (openDetailId == null) return
+    const property = properties.find((p) => p.id === openDetailId)
+    if (property) setDetailProperty(property)
+  }, [openDetailId, properties])
 
   function handleOpenDetailById(id: number) {
     const property = properties.find((p) => p.id === id)
@@ -74,7 +82,7 @@ export function PortfolioPage({
           error={propertiesError}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
-          onDetails={(p) => { setDetailProperty(p); onSelectProperty?.(p.id) }}
+          onDetails={(p) => { setMapOpen(true); onSelectProperty?.(p.id) }}
           mapOpen={mapOpen}
           onToggleMap={() => setMapOpen((prev) => !prev)}
         />

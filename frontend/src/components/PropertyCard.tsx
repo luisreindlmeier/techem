@@ -92,7 +92,7 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
             className="mt-3 h-7 w-full rounded-md bg-[#E30613] text-xs text-white hover:bg-[#c00510]"
             onClick={(e) => { e.stopPropagation(); onDetails?.() }}
           >
-            More Details
+            View Object
           </Button>
         </CardContent>
       </Card>

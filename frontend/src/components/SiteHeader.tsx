@@ -14,6 +14,7 @@ type SiteHeaderProps = {
   onToggleSidebar: () => void
   selectedPropertyId: number | null
   onPropertyChange: (id: number | null) => void
+  onOpenDetail?: (id: number) => void
   properties: PropertyItem[]
 }
 
@@ -40,6 +41,7 @@ export function SiteHeader({
   onToggleSidebar,
   selectedPropertyId,
   onPropertyChange,
+  onOpenDetail,
   properties,
 }: SiteHeaderProps) {
   const mobileMenuAnimationHostRef = useRef<HTMLSpanElement | null>(null)
@@ -96,8 +98,9 @@ export function SiteHeader({
   }
 
   function selectSuggestion(p: PropertyItem) {
-    onSearchChange(p.name ?? p.city)
+    onSearchChange('')
     onPropertyChange(p.id)
+    onOpenDetail?.(p.id)
     setShow(false)
     setHighlighted(-1)
   }
