@@ -1,3 +1,10 @@
+export type PropertyItem = {
+  id: number
+  city: string
+  zipcode: string
+  energysource: string
+}
+
 export type MetricPoint = {
   date: string
   energy_kwh: number

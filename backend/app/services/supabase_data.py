@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.config import settings
-from app.schemas import MetricPoint
+from app.schemas import MetricPoint, PropertyItem
 from app.services.mock_data import generate_mock_points
 
 
@@ -70,3 +70,29 @@ def load_metric_points(default_days: int = 60) -> list[MetricPoint]:
         )
 
     return points or generate_mock_points(default_days)
+
+
+def load_properties() -> list[PropertyItem]:
+    client = _build_client()
+    if client is None:
+        return []
+
+    try:
+        response = (
+            client.table("properties")
+            .select("id,city,zipcode,energysource")
+            .order("id")
+            .execute()
+        )
+    except Exception:
+        return []
+
+    return [
+        PropertyItem(
+            id=row["id"],
+            city=row.get("city", ""),
+            zipcode=row.get("zipcode", ""),
+            energysource=row.get("energysource", ""),
+        )
+        for row in (response.data or [])
+    ]

@@ -21,23 +21,23 @@ type EnergyTrendChartProps = {
 
 export function EnergyTrendChart({ data }: EnergyTrendChartProps) {
   return (
-    <div className="rounded-md border border-stone-300 bg-white p-4 shadow-sm">
+    <div className="rounded-sm border border-stone-200 bg-white p-4 shadow-sm">
       <h2 className="text-lg font-semibold text-stone-900">Energy & Emission Trend</h2>
       <p className="mb-4 text-sm text-stone-600">Historische Tageswerte aus Supabase oder Mock-Daten</p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#d6d3d1" />
-            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
+            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#57534e' }} axisLine={{ stroke: '#d6d3d1' }} tickLine={{ stroke: '#d6d3d1' }} />
+            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#57534e' }} axisLine={{ stroke: '#d6d3d1' }} tickLine={{ stroke: '#d6d3d1' }} />
+            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#57534e' }} axisLine={{ stroke: '#d6d3d1' }} tickLine={{ stroke: '#d6d3d1' }} />
             <Tooltip />
             <Legend />
             <Line
               yAxisId="left"
               type="monotone"
               dataKey="energy_kwh"
-              stroke="#166534"
+              stroke="#111111"
               strokeWidth={2}
               dot={false}
               name="Energy (kWh)"
@@ -46,7 +46,7 @@ export function EnergyTrendChart({ data }: EnergyTrendChartProps) {
               yAxisId="right"
               type="monotone"
               dataKey="emission_kg_co2e"
-              stroke="#4ade80"
+              stroke="#E30613"
               strokeWidth={2}
               dot={false}
               name="Emission (kg CO2e)"

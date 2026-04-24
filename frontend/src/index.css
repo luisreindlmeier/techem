@@ -4,11 +4,16 @@
 
 :root {
   font-family: 'Geist', 'Segoe UI', Tahoma, sans-serif;
-  color: #111827;
+  color: #111111;
   background-color: #ffffff;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(227, 6, 19, 0.16);
+  color: #111111;
 }
 
 * {
@@ -17,4 +22,7 @@
 
 body {
   margin: 0;
+  min-width: 320px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f8f7 100%);
+  color: #111111;
 }

@@ -6,10 +6,10 @@ class Settings(BaseSettings):
 
     supabase_url: str | None = None
     supabase_key: str | None = None
-    supabase_table: str = "energy_readings"
+    supabase_table: str = "daily_property_metrics"
     supabase_time_column: str = "reading_date"
-    supabase_energy_column: str = "energy_kwh"
-    supabase_emission_column: str = "emission_kg_co2e"
+    supabase_energy_column: str = "total_energy_kwh"
+    supabase_emission_column: str = "total_emission_kg_co2e"
     frontend_origin: str = "http://localhost:5173"
 
 

@@ -1,4 +1,5 @@
-import type { ForecastResponse, OverviewResponse } from './types'
+import type { ForecastResponse, OverviewResponse, PropertyItem } from './types'
+import { supabase } from './supabase'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
@@ -16,4 +17,14 @@ export function getOverview(): Promise<OverviewResponse> {
 
 export function getForecast(days = 30): Promise<ForecastResponse> {
   return fetchJson<ForecastResponse>(`/api/v1/forecast?horizon_days=${days}`)
+}
+
+export async function getProperties(): Promise<PropertyItem[]> {
+  const { data, error } = await supabase
+    .from('properties')
+    .select('id,city,zipcode,energysource')
+    .order('id')
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PropertyItem[]
 }

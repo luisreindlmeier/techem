@@ -2,9 +2,9 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.schemas import ForecastResponse, HealthResponse, OverviewResponse
+from app.schemas import ForecastResponse, HealthResponse, OverviewResponse, PropertyItem
 from app.services.forecast import forecast_from_history
-from app.services.supabase_data import load_metric_points
+from app.services.supabase_data import load_metric_points, load_properties
 
 app = FastAPI(title="Techem Energy API", version="0.1.0")
 
@@ -21,6 +21,11 @@ app.add_middleware(
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+@app.get("/api/v1/properties", response_model=list[PropertyItem])
+def properties() -> list[PropertyItem]:
+    return load_properties()
 
 
 @app.get("/api/v1/metrics/overview", response_model=OverviewResponse)

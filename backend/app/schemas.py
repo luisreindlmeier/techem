@@ -7,6 +7,13 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class PropertyItem(BaseModel):
+    id: int
+    city: str
+    zipcode: str
+    energysource: str
+
+
 class MetricPoint(BaseModel):
     date: date
     energy_kwh: float
