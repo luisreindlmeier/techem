@@ -2,6 +2,7 @@ from datetime import date
 
 from app.config import settings
 from app.schemas import MetricPoint, PropertyItem
+from app.services.geocoding import geocode
 from app.services.mock_data import generate_mock_points
 
 
@@ -80,19 +81,37 @@ def load_properties() -> list[PropertyItem]:
     try:
         response = (
             client.table("properties")
-            .select("id,city,zipcode,energysource")
+            .select("id,name,street,city,zipcode,energysource,lat,lng,footprint_polygon,building_height")
             .order("id")
             .execute()
         )
     except Exception:
         return []
 
-    return [
-        PropertyItem(
-            id=row["id"],
-            city=row.get("city", ""),
-            zipcode=row.get("zipcode", ""),
-            energysource=row.get("energysource", ""),
+    items: list[PropertyItem] = []
+    for row in response.data or []:
+        city = row.get("city", "")
+        zipcode = row.get("zipcode", "")
+        lat = row.get("lat")
+        lng = row.get("lng")
+
+        if lat is None or lng is None:
+            coords = geocode(zipcode, city)
+            lat = coords[0] if coords else None
+            lng = coords[1] if coords else None
+
+        items.append(
+            PropertyItem(
+                id=row["id"],
+                name=row.get("name"),
+                street=row.get("street"),
+                city=city,
+                zipcode=zipcode,
+                energysource=row.get("energysource", ""),
+                lat=lat,
+                lng=lng,
+                footprint_polygon=row.get("footprint_polygon"),
+                building_height=row.get("building_height") or 12,
+            )
         )
-        for row in (response.data or [])
-    ]
+    return items

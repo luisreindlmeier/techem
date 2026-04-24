@@ -9,9 +9,15 @@ class HealthResponse(BaseModel):
 
 class PropertyItem(BaseModel):
     id: int
+    name: str | None = None
+    street: str | None = None
     city: str
     zipcode: str
     energysource: str
+    lat: float | None = None
+    lng: float | None = None
+    footprint_polygon: list[list[list[float]]] | None = None
+    building_height: int = 12
 
 
 class MetricPoint(BaseModel):
