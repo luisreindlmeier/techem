@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     supabase_energy_column: str = "total_energy_kwh"
     supabase_emission_column: str = "total_emission_kg_co2e"
     frontend_origin: str = "http://localhost:5173"
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
 
 
 settings = Settings()

@@ -5,7 +5,7 @@ import {
   ArrowRightStartOnRectangleIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
-  SparklesIcon,
+  ChatBubbleLeftRightIcon,
   Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 
@@ -24,7 +24,7 @@ const navigationItems: { label: string; page: Page; icon: React.ElementType }[] 
   { label: 'Dashboard', page: 'dashboard', icon: Squares2X2Icon },
   { label: 'Portfolio', page: 'portfolio', icon: BuildingOffice2Icon },
   { label: 'Analytics', page: 'analytics', icon: ChartBarIcon },
-  { label: 'Techem MCP', page: 'mcp', icon: SparklesIcon },
+  { label: 'Techem MCP', page: 'mcp', icon: ChatBubbleLeftRightIcon },
 ]
 
 function LottieIcon({

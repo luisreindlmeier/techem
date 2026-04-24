@@ -3,15 +3,29 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.schemas import (
+    AISummaryResponse,
     BuildingOverview,
+    CRREMSummaryResponse,
+    DashboardAlertsResponse,
+    DashboardKPIs,
     ForecastResponse,
     ForecastTimelineResponse,
     HealthResponse,
     OverviewResponse,
+    PortfolioTrendResponse,
     PropertyItem,
     PropertyStats,
     UnitForecastResponse,
     UnitHistoryResponse,
+)
+from app.mcp.schemas import McpChatRequest, McpChatResponse
+from app.mcp.service import run_chat as run_mcp_chat
+from app.services.dashboard import (
+    get_ai_summary,
+    get_alerts,
+    get_crrem_summary,
+    get_kpis,
+    get_portfolio_trend,
 )
 from app.services.forecast import forecast_from_history
 from app.services.property_data import (
@@ -128,6 +142,18 @@ def unit_forecast(property_id: int, floor: int, apt_idx: int) -> UnitForecastRes
     return fc
 
 
+# ---------------------------------------------------------------------------
+# Techem MCP (natural-language portfolio access)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/mcp/chat", response_model=McpChatResponse)
+def mcp_chat(payload: McpChatRequest) -> McpChatResponse:
+    prompt = (payload.prompt or "").strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="prompt must not be empty")
+    return run_mcp_chat(prompt)
+
+
 @app.get(
     "/api/v1/properties/{property_id}/units/{floor}/{apt_idx}/forecast-timeline",
     response_model=ForecastTimelineResponse,
@@ -144,3 +170,32 @@ def unit_forecast_timeline(
     if timeline is None:
         raise HTTPException(status_code=404, detail="Property not found")
     return timeline
+
+
+# ---------------------------------------------------------------------------
+# Dashboard (KPIs, alerts feed, CRREM snapshot, AI summary, portfolio trend)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/dashboard/kpis", response_model=DashboardKPIs)
+def dashboard_kpis() -> DashboardKPIs:
+    return get_kpis()
+
+
+@app.get("/api/v1/dashboard/alerts", response_model=DashboardAlertsResponse)
+def dashboard_alerts() -> DashboardAlertsResponse:
+    return get_alerts()
+
+
+@app.get("/api/v1/crrem/summary", response_model=CRREMSummaryResponse)
+def crrem_summary() -> CRREMSummaryResponse:
+    return get_crrem_summary()
+
+
+@app.get("/api/v1/dashboard/ai-summary", response_model=AISummaryResponse)
+def dashboard_ai_summary() -> AISummaryResponse:
+    return get_ai_summary()
+
+
+@app.get("/api/v1/dashboard/portfolio-trend", response_model=PortfolioTrendResponse)
+def dashboard_portfolio_trend() -> PortfolioTrendResponse:
+    return get_portfolio_trend()
