@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import { FLOORPLAN } from '@/lib/chartColors'
+
 // Same footprint as IsometricBuilding, rendered as a top-face slice
 // Projection: px = (x - z) * HS + OX,  py = (x + z) * VS
 const HS = 34
@@ -72,8 +74,8 @@ export function FloorPlanView({ selectedAptIdx, onSelectApt, floor }: FloorPlanV
       {APTS.map((apt) => {
         const sel = selectedAptIdx === apt.idx
         const h   = hov === apt.idx && !sel
-        const fill   = sel ? 'rgba(227,6,19,0.10)' : h ? '#f5f5f4' : '#fafaf9'
-        const stroke = sel ? '#E30613' : '#d6d3d1'
+        const fill   = sel ? FLOORPLAN.fillSelected : h ? FLOORPLAN.fillHover : FLOORPLAN.fillIdle
+        const stroke = sel ? FLOORPLAN.labelSelected : FLOORPLAN.strokeIdle
         const [lpx, lpy] = proj(apt.lx, apt.lz)
 
         return (
@@ -98,7 +100,7 @@ export function FloorPlanView({ selectedAptIdx, onSelectApt, floor }: FloorPlanV
               dominantBaseline="middle"
               fontSize="9"
               fontWeight={sel ? '700' : '500'}
-              fill={sel ? '#E30613' : '#a8a29e'}
+              fill={sel ? FLOORPLAN.labelSelected : FLOORPLAN.labelIdle}
               fontFamily="inherit"
             >
               {floor}{apt.label}

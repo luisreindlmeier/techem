@@ -6,6 +6,13 @@ module.exports = {
       fontFamily: {
         sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
+      colors: {
+        brand: {
+          DEFAULT: '#E30613',
+          hover:   '#c00510',
+          dark:    '#E2001A',
+        },
+      },
     },
   },
   plugins: [],

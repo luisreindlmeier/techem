@@ -5,12 +5,13 @@ import {
   ArrowRightStartOnRectangleIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
+  SparklesIcon,
   Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 
 import { cn } from '@/lib/utils'
 
-export type Page = 'dashboard' | 'portfolio' | 'analytics' | 'settings'
+export type Page = 'dashboard' | 'portfolio' | 'analytics' | 'mcp' | 'settings'
 
 type SidebarNavProps = {
   isMobileOpen: boolean
@@ -23,6 +24,7 @@ const navigationItems: { label: string; page: Page; icon: React.ElementType }[] 
   { label: 'Dashboard', page: 'dashboard', icon: Squares2X2Icon },
   { label: 'Portfolio', page: 'portfolio', icon: BuildingOffice2Icon },
   { label: 'Analytics', page: 'analytics', icon: ChartBarIcon },
+  { label: 'Techem MCP', page: 'mcp', icon: SparklesIcon },
 ]
 
 function LottieIcon({
@@ -69,7 +71,7 @@ function LottieIcon({
       ref={containerRef}
       className={cn(
         'shrink-0 [&_path]:transition-none [&_svg]:overflow-visible',
-        active ? '[&_path]:stroke-[#E30613]' : '[&_path]:stroke-stone-500',
+        active ? '[&_path]:stroke-brand' : '[&_path]:stroke-stone-500',
         className,
       )}
     />
@@ -117,16 +119,16 @@ export function SidebarNav({ isMobileOpen, onCloseMobile, activePage, onNavigate
                   className={cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                     active
-                      ? 'bg-[#E30613]/[0.07] text-[#E30613]'
+                      ? 'bg-brand/[0.07] text-brand'
                       : 'text-stone-700 hover:bg-stone-100 hover:text-stone-950',
                   )}
                 >
                   <item.icon
-                    className={cn('h-5 w-5 shrink-0', active ? 'text-[#E30613]' : 'text-stone-500')}
+                    className={cn('h-5 w-5 shrink-0', active ? 'text-brand' : 'text-stone-500')}
                   />
                   <span className="truncate">{item.label}</span>
                   {active && (
-                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#E30613]" />
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-brand" />
                   )}
                 </button>
               )

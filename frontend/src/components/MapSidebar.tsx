@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react'
 import { Map, Layer, Source, type MapRef } from 'react-map-gl/maplibre'
 
 import { Button } from '@/components/ui/button'
+import { BRAND, MAP_BUILDING_STOPS } from '@/lib/chartColors'
 import type { PropertyItem } from '@/lib/types'
 
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -32,9 +33,7 @@ const BUILDINGS_LAYER = {
     'fill-extrusion-color': [
       'interpolate', ['linear'],
       ['coalesce', ['get', 'render_height'], 0],
-      0,  '#d4d0cb',
-      20, '#dedad5',
-      60, '#e8e5e0',
+      ...MAP_BUILDING_STOPS.flatMap(([h, c]) => [h, c]),
     ],
     'fill-extrusion-height': [
       'interpolate', ['linear'], ['zoom'],
@@ -51,7 +50,7 @@ const PORTFOLIO_BUILDINGS_LAYER = {
   type: 'fill-extrusion' as const,
   source: 'portfolio-buildings',
   paint: {
-    'fill-extrusion-color':   '#E30613',
+    'fill-extrusion-color':   BRAND.DEFAULT,
     'fill-extrusion-height':  ['get', 'height'],
     'fill-extrusion-base':    ['get', 'base'],
     'fill-extrusion-opacity': 1.0,
@@ -277,7 +276,7 @@ export function MapSidebar({ isOpen, properties, onSelectProperty, onOpenDetails
               <div className="border-t border-stone-100 px-3.5 py-2.5">
                 <Button
                   size="sm"
-                  className="h-7 w-full bg-[#E30613] text-xs text-white hover:bg-[#c00510]"
+                  className="h-7 w-full bg-brand text-xs text-white hover:bg-brand-hover"
                   onClick={() => onOpenDetails?.(hoveredProperty.id)}
                 >
                   More Details

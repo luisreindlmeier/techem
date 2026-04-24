@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import { BRAND, ISO_BUILDING } from '@/lib/chartColors'
+
 type IsometricBuildingProps = {
   totalFloors: number
   selectedFloor: number // 1-indexed
@@ -58,13 +60,14 @@ export function IsometricBuilding({ totalFloors, selectedFloor, onSelectFloor }:
         const sel = selectedFloor === floorNum
         const h   = hov === floorNum && !sel
 
-        const topFill = sel ? '#E2001A' : h ? '#C8C8C8' : '#EAEAEA'
-        const front   = sel ? '#B80016' : h ? '#B8B8B8' : '#D2D2D2'
-        const step    = sel ? '#A50013' : h ? '#ABABAB' : '#C8C8C8'
-        const side    = sel ? '#900010' : h ? '#A0A0A0' : '#BCBCBC'
-        const deep    = sel ? '#7A000D' : h ? '#929292' : '#ADADAD'
+        const palette = sel ? ISO_BUILDING.selected : h ? ISO_BUILDING.hovered : ISO_BUILDING.idle
+        const topFill = palette.top
+        const front   = palette.front
+        const step    = palette.step
+        const side    = palette.side
+        const deep    = palette.deep
+        const sk      = palette.stroke
         const win     = sel ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.09)'
-        const sk      = sel ? '#6A000B' : '#BBBBBB'
 
         const w = (x1: number, z1: number, x2: number, z2: number) =>
           `${p(x1,z1,y0+0.66)} ${p(x2,z2,y0+0.66)} ${p(x2,z2,y0+0.26)} ${p(x1,z1,y0+0.26)}`
@@ -133,7 +136,7 @@ export function IsometricBuilding({ totalFloors, selectedFloor, onSelectFloor }:
         const fi      = floorNum - 1
         const [, ly]  = xy(0, 1, fi - 0.2)
         const sel     = selectedFloor === floorNum
-        const col     = sel ? '#E2001A' : '#888888'
+        const col     = sel ? BRAND.dark : '#888888'
         return (
           <g
             key={`lbl${floorNum}`}
