@@ -88,10 +88,8 @@ export function SiteHeader({
   }, [isMobileSidebarOpen])
 
   const trimmed    = searchQuery.trim()
-  const searchable: PropertyItem[] = lockedPropertyId != null
-    ? properties.filter((p) => p.id === lockedPropertyId)
-    : properties
-  const dropdownOptions: PropertyItem[] = searchable
+  const searchable: PropertyItem[] = properties
+  const dropdownOptions: PropertyItem[] = properties
   const suggestions: PropertyItem[] = trimmed.length > 0
     ? searchable.filter((p) => matches(p, trimmed)).slice(0, MAX_SUGGESTIONS)
     : []
