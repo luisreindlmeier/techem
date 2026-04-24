@@ -3,6 +3,7 @@ import { Map, Layer, Source } from 'react-map-gl/maplibre'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -117,14 +118,14 @@ const DEFAULT_WIDTH = 40
 // Types
 // ---------------------------------------------------------------------------
 
-type HoverInfo = { x: number; y: number; name?: string; height?: number }
-type MapSidebarProps = { isOpen: boolean; onToggle: () => void }
+type HoverInfo = { x: number; y: number; isTarget: boolean }
+type MapSidebarProps = { isOpen: boolean; onToggle: () => void; onSelectProperty?: () => void }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
+export function MapSidebar({ isOpen, onToggle, onSelectProperty }: MapSidebarProps) {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH)
   const [hoverInfo, setHoverInfo]   = useState<HoverInfo | null>(null)
 
@@ -132,6 +133,17 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
   const isDragging = useRef(false)
   const dragStartX = useRef(0)
   const dragStartW = useRef(0)
+
+  // --- tooltip hide delay ---------------------------------------------------
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function cancelHide() {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+  }
+  function scheduleHide() {
+    cancelHide()
+    hideTimer.current = setTimeout(() => setHoverInfo(null), 250)
+  }
 
   function handleDragStart(e: React.MouseEvent) {
     isDragging.current = true
@@ -165,18 +177,14 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
   // --- Hover tooltip --------------------------------------------------------
   function handleMouseMove(e: {
     point:     { x: number; y: number }
-    features?: { properties?: Record<string, unknown> }[]
+    features?: { layer?: { id?: string } }[]
   }) {
     const feat = e.features?.[0]
-    if (feat) {
-      setHoverInfo({
-        x:      e.point.x,
-        y:      e.point.y,
-        name:   feat.properties?.name          as string | undefined,
-        height: feat.properties?.render_height as number | undefined,
-      })
+    if (feat?.layer?.id === 'building-highlight') {
+      cancelHide()
+      setHoverInfo({ x: e.point.x, y: e.point.y, isTarget: true })
     } else {
-      setHoverInfo(null)
+      scheduleHide()
     }
   }
 
@@ -236,45 +244,55 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
             initialViewState={INITIAL_VIEW_STATE}
             mapStyle={MAP_STYLE}
             style={{ width: '100%', height: '100%' }}
-            interactiveLayerIds={
-              MAPTILER_KEY ? ['buildings-3d'] : []
-            }
+            interactiveLayerIds={[
+              ...(MAPTILER_KEY ? ['buildings-3d'] : []),
+              'building-highlight',
+            ]}
             onMouseMove={handleMouseMove as never}
             onMouseLeave={() => setHoverInfo(null)}
           >
             {MAPTILER_KEY && (
-              <Layer {...(BUILDINGS_LAYER as never)} />
+              <Layer {...(BUILDINGS_LAYER as any)} />
             )}
 
             {/* Exact building footprint — always shown, independent of tile source */}
             <Source id="target-building" type="geojson" data={TARGET_BUILDING_GEOJSON}>
-              <Layer {...(HIGHLIGHT_LAYER as never)} />
+              <Layer {...(HIGHLIGHT_LAYER as any)} />
             </Source>
           </Map>
 
-          {/* Hover tooltip */}
-          {hoverInfo && (
+          {/* Building tooltip */}
+          {hoverInfo && hoverInfo.isTarget && (
             <div
               style={{
-                position:      'absolute',
-                left:          hoverInfo.x + 14,
-                top:           Math.max(8, hoverInfo.y - 52),
-                pointerEvents: 'none',
-                zIndex:        100,
+                position: 'absolute',
+                left:     hoverInfo.x + 16,
+                top:      Math.max(8, hoverInfo.y - 90),
+                zIndex:   100,
               }}
-              className="rounded-md bg-stone-950/85 px-2.5 py-1.5 text-xs shadow-lg backdrop-blur-sm"
+              className="w-56 rounded-md border border-stone-200 bg-white shadow-lg"
             >
-              {hoverInfo.name && (
-                <p className="font-semibold text-white">{hoverInfo.name}</p>
-              )}
-              {hoverInfo.height != null && (
-                <p className="text-stone-300">
-                  {Math.round(Number(hoverInfo.height))} m Höhe
+              <div className="px-3.5 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">
+                  Liegenschaft
                 </p>
-              )}
-              {!hoverInfo.name && hoverInfo.height == null && (
-                <p className="text-stone-300">Gebäude</p>
-              )}
+                <p className="mt-0.5 text-sm font-semibold text-stone-900">
+                  Westerbachstraße 47
+                </p>
+                <p className="mt-0.5 text-xs text-stone-500">
+                  Haus 2 · 4. Stock
+                </p>
+                <p className="text-xs text-stone-500">60489 Frankfurt am Main</p>
+              </div>
+              <div className="border-t border-stone-100 px-3.5 py-2.5">
+                <Button
+                  size="sm"
+                  className="h-7 w-full bg-[#E30613] text-xs text-white hover:bg-[#c00510]"
+                  onClick={onSelectProperty}
+                >
+                  Auswählen
+                </Button>
+              </div>
             </div>
           )}
         </div>
