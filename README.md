@@ -1,6 +1,18 @@
+<div align="center">
+  <img width="320" alt="techem-horizon" src="https://github.com/user-attachments/assets/56ffc738-94df-4e6c-8f9d-7e11941a4426" />
+</div>
+
 # Techem Horizon
 
-A portfolio-intelligence platform for real-estate energy data. Raw meter readings get stitched together with live weather, geometry and geo data to produce a living view of every building and apartment — with **Techem MCP** as the AI chatbot on top.
+>  Portfolio-intelligence platform for real-estate energy data.
+
+<img width="1710" height="898" alt="techem2" src="https://github.com/user-attachments/assets/8f8247d1-76b2-4460-b745-30473895a468" />
+<br />
+<img width="1709" height="895" alt="techem1" src="https://github.com/user-attachments/assets/95850f00-406c-49ff-a68c-99ad9fb198cd" />
+<br />
+
+Raw meter readings get stitched together with live weather, geometry and geo data to produce a living view of every building and apartment — with interactive overviews![Uploading techem1.png…]()
+, forecasts **Techem MCP** as the AI chatbot on top.
 
 Three surfaces:
 
@@ -80,6 +92,7 @@ Open `http://localhost:5173`. Env, schema bootstrap, and deployment live in the 
 
 React 19 · Vite · Tailwind · shadcn/ui · Recharts · deck.gl · MapLibre · FastAPI · Pydantic · Supabase Postgres · Open-Meteo · Nominatim · OpenAI · Railway · Vercel.
 
-## Design
+## Scope
 
-Black & white, one accent (Techem red `#E30613`), `rounded-md`, Geist, Heroicons. Every screen built around one number that matters.
+This project was created during the [Futury Build Days 2026](https://www.starthub-hessen.de/de/events/futury-build-days/).  
+Challenge given by [Techem](https://www.techem.com/).
