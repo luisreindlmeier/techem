@@ -1,9 +1,8 @@
-import { useRef, useEffect, useState } from 'react'
-import { Map, Layer, Source } from 'react-map-gl/maplibre'
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import { useRef, useEffect, useState, useMemo } from 'react'
+import { Map, Layer, Source, type MapRef } from 'react-map-gl/maplibre'
 
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import type { PropertyItem } from '@/lib/types'
 
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -17,17 +16,10 @@ const MAP_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
-// Centered on Westerbachstraße 47, 60489 Frankfurt am Main
-const INITIAL_VIEW_STATE = {
-  longitude: 8.6011537,
-  latitude:  50.1218279,
-  zoom:      17,
-  pitch:     60,
-  bearing:   -20,
-}
+const GERMANY_CENTER = { longitude: 10.4515, latitude: 51.1657, zoom: 6, pitch: 0, bearing: 0 }
 
 // ---------------------------------------------------------------------------
-// Gray buildings layer (all buildings, MapTiler source)
+// Static map layers
 // ---------------------------------------------------------------------------
 
 const BUILDINGS_LAYER = {
@@ -54,50 +46,10 @@ const BUILDINGS_LAYER = {
   },
 }
 
-// ---------------------------------------------------------------------------
-// Exact building footprint — OSM way 88689086
-// Westerbachstraße 47, 60489 Frankfurt am Main
-// ---------------------------------------------------------------------------
-
-const TARGET_BUILDING_GEOJSON = {
-  type: 'Feature' as const,
-  properties: { height: 16, base: 0 },
-  geometry: {
-    type: 'Polygon' as const,
-    coordinates: [[
-      [8.6010514, 50.1221653],
-      [8.6009076, 50.1221578],
-      [8.6009061, 50.1221268],
-      [8.6005614, 50.1221337],
-      [8.6005639, 50.1222149],
-      [8.6005696, 50.1223134],
-      [8.6006089, 50.1223159],
-      [8.6017460, 50.1223882],
-      [8.6017314, 50.1213376],
-      [8.6014674, 50.1212676],
-      [8.6014788, 50.1216462],
-      [8.6006162, 50.1216603],
-      [8.6006256, 50.1220455],
-      [8.6008956, 50.1220437],
-      [8.6008923, 50.1218260],
-      [8.6014780, 50.1218081],
-      [8.6014817, 50.1220626],
-      [8.6013552, 50.1220634],
-      [8.6013562, 50.1221345],
-      [8.6014623, 50.1221338],
-      [8.6014633, 50.1221970],
-      [8.6012110, 50.1221774],
-      [8.6012192, 50.1221326],
-      [8.6010596, 50.1221205],
-      [8.6010514, 50.1221653],
-    ]],
-  },
-}
-
-const HIGHLIGHT_LAYER = {
-  id:   'building-highlight',
+const PORTFOLIO_BUILDINGS_LAYER = {
+  id:   'portfolio-buildings',
   type: 'fill-extrusion' as const,
-  source: 'target-building',
+  source: 'portfolio-buildings',
   paint: {
     'fill-extrusion-color':   '#E30613',
     'fill-extrusion-height':  ['get', 'height'],
@@ -118,37 +70,79 @@ const DEFAULT_WIDTH = 40
 // Types
 // ---------------------------------------------------------------------------
 
-type HoverInfo = { x: number; y: number; isTarget: boolean }
-type MapSidebarProps = { isOpen: boolean; onToggle: () => void; onSelectProperty?: () => void }
+type HoverInfo = { x: number; y: number; propertyId: number }
+
+type MapSidebarProps = {
+  isOpen: boolean
+  properties: PropertyItem[]
+  onSelectProperty?: (id: number | null) => void
+  onOpenDetails?: (id: number) => void
+  selectedPropertyId?: number | null
+}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function MapSidebar({ isOpen, onToggle, onSelectProperty }: MapSidebarProps) {
+export function MapSidebar({ isOpen, properties, onSelectProperty, onOpenDetails, selectedPropertyId }: MapSidebarProps) {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH)
+  const [dragging,  setDragging]   = useState(false)
   const [hoverInfo, setHoverInfo]   = useState<HoverInfo | null>(null)
+  const mapRef = useRef<MapRef>(null)
 
-  // --- drag-to-resize -------------------------------------------------------
-  const isDragging = useRef(false)
-  const dragStartX = useRef(0)
-  const dragStartW = useRef(0)
+  // --- Build portfolio GeoJSON from live properties data --------------------
+  const portfolioGeojson = useMemo(() => ({
+    type: 'FeatureCollection' as const,
+    features: properties
+      .filter((p) => p.footprint_polygon != null)
+      .map((p) => ({
+        type: 'Feature' as const,
+        properties: {
+          id:     p.id,
+          name:   p.name ?? p.city,
+          height: p.building_height ?? 12,
+          base:   0,
+        },
+        geometry: {
+          type:        'Polygon' as const,
+          coordinates: p.footprint_polygon!,
+        },
+      })),
+  }), [properties])
 
-  // --- tooltip hide delay ---------------------------------------------------
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // --- Build fly targets from live properties data -------------------------
+  const flyTargets = useMemo(() => {
+    const map: Record<number, { lng: number; lat: number }> = {}
+    for (const p of properties) {
+      if (p.lat != null && p.lng != null) {
+        map[p.id] = { lat: p.lat, lng: p.lng }
+      }
+    }
+    return map
+  }, [properties])
 
-  function cancelHide() {
-    if (hideTimer.current) clearTimeout(hideTimer.current)
-  }
-  function scheduleHide() {
-    cancelHide()
-    hideTimer.current = setTimeout(() => setHoverInfo(null), 250)
-  }
+  // --- Fly to selected property (also re-fires when flyTargets populates) --
+  useEffect(() => {
+    if (!selectedPropertyId) return
+    const target = flyTargets[selectedPropertyId]
+    if (!target) return
+    mapRef.current?.flyTo({
+      center:   [target.lng, target.lat],
+      zoom:     17,
+      pitch:    60,
+      bearing:  -20,
+      duration: 2800,
+      curve:    1.6,
+      essential: true,
+    })
+  }, [selectedPropertyId, flyTargets])
+
+  // --- Drag-to-resize -------------------------------------------------------
+  const dragRef = useRef({ active: false, startX: 0, startW: 0 })
 
   function handleDragStart(e: React.MouseEvent) {
-    isDragging.current = true
-    dragStartX.current = e.clientX
-    dragStartW.current = panelWidth
+    dragRef.current = { active: true, startX: e.clientX, startW: panelWidth }
+    setDragging(true)
     e.preventDefault()
     document.body.style.userSelect = 'none'
     document.body.style.cursor     = 'col-resize'
@@ -156,13 +150,14 @@ export function MapSidebar({ isOpen, onToggle, onSelectProperty }: MapSidebarPro
 
   useEffect(() => {
     function onMove(e: MouseEvent) {
-      if (!isDragging.current) return
-      const delta = ((dragStartX.current - e.clientX) / window.innerWidth) * 100
-      setPanelWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragStartW.current + delta)))
+      if (!dragRef.current.active) return
+      const delta = ((dragRef.current.startX - e.clientX) / window.innerWidth) * 100
+      setPanelWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, dragRef.current.startW + delta)))
     }
     function onUp() {
-      if (!isDragging.current) return
-      isDragging.current             = false
+      if (!dragRef.current.active) return
+      dragRef.current.active         = false
+      setDragging(false)
       document.body.style.userSelect = ''
       document.body.style.cursor     = ''
     }
@@ -174,123 +169,118 @@ export function MapSidebar({ isOpen, onToggle, onSelectProperty }: MapSidebarPro
     }
   }, [])
 
+  // --- Tooltip hide delay ---------------------------------------------------
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function cancelHide() {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+  }
+  function scheduleHide() {
+    cancelHide()
+    hideTimer.current = setTimeout(() => setHoverInfo(null), 250)
+  }
+
   // --- Hover tooltip --------------------------------------------------------
   function handleMouseMove(e: {
     point:     { x: number; y: number }
-    features?: { layer?: { id?: string } }[]
+    features?: { layer?: { id?: string }; properties?: Record<string, unknown> }[]
   }) {
     const feat = e.features?.[0]
-    if (feat?.layer?.id === 'building-highlight') {
-      cancelHide()
-      setHoverInfo({ x: e.point.x, y: e.point.y, isTarget: true })
-    } else {
-      scheduleHide()
+    if (feat?.layer?.id === 'portfolio-buildings') {
+      const id = feat.properties?.id
+      if (typeof id === 'number') {
+        cancelHide()
+        setHoverInfo({ x: e.point.x, y: e.point.y, propertyId: id })
+        return
+      }
     }
+    scheduleHide()
   }
+
+  // --- Map click — toggle selection ----------------------------------------
+  function handleClick(e: {
+    features?: { layer?: { id?: string }; properties?: Record<string, unknown> }[]
+  }) {
+    const feat = e.features?.[0]
+    if (!feat || feat.layer?.id !== 'portfolio-buildings') return
+    const raw = feat.properties?.id
+    const clickedId = typeof raw === 'number' ? raw : null
+    if (clickedId === null) return
+    onSelectProperty?.(clickedId === selectedPropertyId ? null : clickedId)
+  }
+
+  // --- Look up hovered property for tooltip --------------------------------
+  const hoveredProperty = hoverInfo
+    ? (properties.find((p) => p.id === hoverInfo.propertyId) ?? null)
+    : null
 
   // ---------------------------------------------------------------------------
   return (
     <>
-      {/* Toggle tab */}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-label={isOpen ? 'Karte schließen' : 'Karte öffnen'}
-        className={cn(
-          'fixed right-0 top-1/2 z-50 flex h-16 w-7 -translate-y-1/2 flex-col items-center justify-center',
-          'rounded-l-md border border-r-0 border-stone-200 bg-white shadow-md',
-          'text-stone-500 transition-colors hover:bg-stone-50 hover:text-stone-900',
-        )}
-      >
-        {isOpen
-          ? <ChevronRightIcon className="h-4 w-4" />
-          : <ChevronLeftIcon  className="h-4 w-4" />}
-      </button>
-
-      {/*
-        PANEL — position:relative + explicit height:100% so the absolutely-
-        positioned inner container can resolve its own height reliably.
-      */}
       <div
-        className="flex-shrink-0 overflow-hidden border-l border-stone-200 transition-[width] duration-300 ease-in-out"
+        className="relative h-full flex-shrink-0 overflow-hidden"
         style={{
-          position: 'relative',
-          width:    isOpen ? `${panelWidth}%` : 0,
-          height:   '100%',
+          width:      isOpen ? `${panelWidth}%` : 0,
+          transition: dragging ? 'none' : 'width 300ms ease-in-out',
         }}
       >
-        {/*
-          INNER CONTAINER — absolute + top/bottom:0 guarantees full height.
-          Width is intentionally oversized (80vw) so the canvas has real pixels
-          even while the panel animates; overflow:hidden on the parent clips it.
-        */}
-        <div
-          style={{
-            position: 'absolute',
-            top:      0,
-            bottom:   0,
-            left:     0,
-            width:    '80vw',
-            minWidth: '320px',
-          }}
-        >
-          {/* Drag handle */}
+        <div className="absolute inset-3 overflow-hidden rounded-lg shadow-xl">
           <div
-            className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-col-resize bg-transparent transition-colors hover:bg-[#E30613]/25 active:bg-[#E30613]/40"
+            className="absolute left-0 top-0 z-10 h-full w-3 cursor-col-resize"
             onMouseDown={handleDragStart}
           />
 
           <Map
-            initialViewState={INITIAL_VIEW_STATE}
+            ref={mapRef}
+            initialViewState={GERMANY_CENTER}
             mapStyle={MAP_STYLE}
             style={{ width: '100%', height: '100%' }}
             interactiveLayerIds={[
               ...(MAPTILER_KEY ? ['buildings-3d'] : []),
-              'building-highlight',
+              'portfolio-buildings',
             ]}
-            onMouseMove={handleMouseMove as never}
-            onMouseLeave={() => setHoverInfo(null)}
+            onMouseMove={handleMouseMove as any}
+            onMouseLeave={scheduleHide}
+            onClick={handleClick as any}
           >
             {MAPTILER_KEY && (
               <Layer {...(BUILDINGS_LAYER as any)} />
             )}
 
-            {/* Exact building footprint — always shown, independent of tile source */}
-            <Source id="target-building" type="geojson" data={TARGET_BUILDING_GEOJSON}>
-              <Layer {...(HIGHLIGHT_LAYER as any)} />
+            <Source id="portfolio-buildings" type="geojson" data={portfolioGeojson}>
+              <Layer {...(PORTFOLIO_BUILDINGS_LAYER as any)} />
             </Source>
           </Map>
 
           {/* Building tooltip */}
-          {hoverInfo && hoverInfo.isTarget && (
+          {hoverInfo && hoveredProperty && (
             <div
-              style={{
-                position: 'absolute',
-                left:     hoverInfo.x + 16,
-                top:      Math.max(8, hoverInfo.y - 90),
-                zIndex:   100,
-              }}
-              className="w-56 rounded-md border border-stone-200 bg-white shadow-lg"
+              className="absolute z-[100] w-56 rounded-md border border-stone-200 bg-white shadow-lg"
+              style={{ left: hoverInfo.x + 16, top: Math.max(8, hoverInfo.y - 90) }}
+              onMouseEnter={cancelHide}
+              onMouseLeave={scheduleHide}
             >
               <div className="px-3.5 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-400">
-                  Liegenschaft
+                  Property
                 </p>
                 <p className="mt-0.5 text-sm font-semibold text-stone-900">
-                  Westerbachstraße 47
+                  {hoveredProperty.name ?? hoveredProperty.city}
                 </p>
-                <p className="mt-0.5 text-xs text-stone-500">
-                  Haus 2 · 4. Stock
+                {hoveredProperty.street && (
+                  <p className="mt-0.5 text-xs text-stone-500">{hoveredProperty.street}</p>
+                )}
+                <p className="text-xs text-stone-500">
+                  {hoveredProperty.zipcode} {hoveredProperty.city}
                 </p>
-                <p className="text-xs text-stone-500">60489 Frankfurt am Main</p>
               </div>
               <div className="border-t border-stone-100 px-3.5 py-2.5">
                 <Button
                   size="sm"
                   className="h-7 w-full bg-[#E30613] text-xs text-white hover:bg-[#c00510]"
-                  onClick={onSelectProperty}
+                  onClick={() => onOpenDetails?.(hoveredProperty.id)}
                 >
-                  Auswählen
+                  More Details
                 </Button>
               </div>
             </div>

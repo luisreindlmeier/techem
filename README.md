@@ -23,19 +23,23 @@ Full-stack prototype for energy and emission analysis and forecasting.
 │   │       ├── forecast.py
 │   │       ├── mock_data.py
 │   │       └── supabase_data.py
+│   ├── scripts/
+│   │   └── import_techem_files.py
+│   ├── sql/
+│   │   └── schema.sql
 │   ├── requirements.txt
 │   ├── railway.toml
-│   └── .env.example
+│   └── .env
 └── frontend/
-		├── src/
-		│   ├── App.tsx
-		│   ├── components/
-		│   └── lib/
-		├── package.json
-		├── tailwind.config.cjs
-		├── postcss.config.cjs
-		├── components.json
-		└── .env.example
+    ├── src/
+    │   ├── App.tsx
+    │   ├── components/
+    │   └── lib/
+    ├── package.json
+    ├── tailwind.config.cjs
+    ├── postcss.config.cjs
+    ├── components.json
+    └── .env
 ```
 
 ## Local Setup
@@ -46,7 +50,6 @@ Full-stack prototype for energy and emission analysis and forecasting.
 cd backend
 python -m venv ../.venv
 ../.venv/bin/python -m pip install -r requirements.txt
-cp .env.example .env
 ../.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -56,16 +59,14 @@ API health check:
 curl http://localhost:8000/health
 ```
 
-### 2) Frontend
+Import all CSV files into Supabase (requires `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env`):
 
 ```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
+cd backend
+../.venv/bin/python scripts/import_techem_files.py
 ```
 
-Open: `http://localhost:5173`
+If you want the UI to point at the local backend, open `http://localhost:5173` after starting the frontend.
 
 ## Environment Variables
 
@@ -73,10 +74,13 @@ Open: `http://localhost:5173`
 
 - `SUPABASE_URL`
 - `SUPABASE_KEY`
-- `SUPABASE_TABLE` (default: `energy_readings`)
+- `SUPABASE_SERVICE_ROLE_KEY` for CSV uploads
+- `SUPABASE_RAW_TABLE` (default: `property_readings`)
+- `SUPABASE_SUMMARY_TABLE` (default: `daily_property_metrics`)
+- `SUPABASE_TABLE` (default: `daily_property_metrics`)
 - `SUPABASE_TIME_COLUMN` (default: `reading_date`)
-- `SUPABASE_ENERGY_COLUMN` (default: `energy_kwh`)
-- `SUPABASE_EMISSION_COLUMN` (default: `emission_kg_co2e`)
+- `SUPABASE_ENERGY_COLUMN` (default: `total_energy_kwh`)
+- `SUPABASE_EMISSION_COLUMN` (default: `total_emission_kg_co2e`)
 - `FRONTEND_ORIGIN` (default: `http://localhost:5173`)
 
 ### Frontend (`frontend/.env`)
@@ -85,20 +89,37 @@ Open: `http://localhost:5173`
 - `VITE_SUPABASE_URL` (optional in current UI)
 - `VITE_SUPABASE_ANON_KEY` (optional in current UI)
 
-## Supabase Table (example)
+The local env files are committed to the workspace only as long as they remain ignored by `.gitignore`.
 
-Use this SQL in Supabase SQL Editor:
+## Supabase Schema
+
+Use the SQL in `backend/sql/schema.sql` to create the raw import table and the daily summary table in Supabase.
 
 ```sql
-create table if not exists public.energy_readings (
-	id bigint generated always as identity primary key,
-	reading_date date not null,
-	energy_kwh numeric not null,
-	emission_kg_co2e numeric not null
+create table if not exists public.property_readings (
+    id bigint generated always as identity primary key,
+    property_id integer not null,
+    source_file text not null,
+    reading_date date not null,
+    zipcode text not null,
+    energysource text not null,
+    city text not null,
+    energyusage_kwh numeric not null,
+    livingspace_m2 numeric not null,
+    mean_outside_temperature_c numeric not null,
+    roomnumber integer not null,
+    emission_factor_g_kwh numeric not null,
+    unitnumber integer not null,
+    created_at timestamptz not null default now()
 );
 
-create index if not exists energy_readings_date_idx
-	on public.energy_readings (reading_date);
+create table if not exists public.daily_property_metrics (
+    reading_date date primary key,
+    total_energy_kwh numeric not null,
+    total_emission_kg_co2e numeric not null,
+    property_count integer not null,
+    updated_at timestamptz not null default now()
+);
 ```
 
 If no valid Supabase config is set, backend automatically falls back to mock data.
@@ -109,7 +130,7 @@ If no valid Supabase config is set, backend automatically falls back to mock dat
 
 1. Create a Railway service from this repo.
 2. Set root directory to `backend` (important in monorepo).
-3. Add environment variables from `backend/.env.example`.
+3. Add environment variables from `backend/.env` and the Supabase dashboard.
 4. Deploy. Railway uses `railway.toml` and starts uvicorn.
 5. Copy deployed API URL, for example: `https://techem-api.up.railway.app`
 
@@ -135,11 +156,11 @@ Frontend is prepared for shadcn usage (`components.json`, path alias `@/*`, scri
 
 ## What You Need To Do
 
-1. Create Supabase project/table and insert sample data.
-2. Fill `backend/.env` with real Supabase values.
-3. Deploy backend on Railway with root directory `backend`.
-4. Set `VITE_API_BASE_URL` in Vercel to Railway URL.
-5. Redeploy Vercel and test dashboard + API endpoints.
+1. Create the `property_readings` and `daily_property_metrics` tables in Supabase using `backend/sql/schema.sql`.
+2. Preferably add your real `SUPABASE_SERVICE_ROLE_KEY` to `backend/.env`.
+3. Run `../.venv/bin/python scripts/import_techem_files.py` from `backend/` to upload all CSVs.
+4. Deploy backend on Railway with root directory `backend`.
+5. Set `VITE_API_BASE_URL` in Vercel to the Railway URL and redeploy the frontend.
 
 ## Notes
 

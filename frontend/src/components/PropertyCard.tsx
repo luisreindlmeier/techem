@@ -1,71 +1,101 @@
-import { BuildingOffice2Icon, BoltIcon, HomeIcon } from '@heroicons/react/24/outline'
-
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { Property } from '@/data/properties'
+import type { PropertyItem } from '@/lib/types'
+import { buildingImageUrl } from '@/lib/buildingImages'
 
 type PropertyCardProps = {
-  property: Property
+  property: PropertyItem
   selected: boolean
   onClick: () => void
+  onDetails?: () => void
 }
+
 
 const SOURCE_COLORS: Record<string, string> = {
-  Erdgas:      'bg-amber-50 text-amber-700 border-amber-200',
-  Fernwärme:   'bg-blue-50 text-blue-700 border-blue-200',
-  Wärmepumpe:  'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Heizöl:      'bg-stone-100 text-stone-600 border-stone-300',
-  Pellets:     'bg-lime-50 text-lime-700 border-lime-200',
+  'Natural Gas':     'bg-amber-50 text-amber-700 border-amber-200',
+  'District Heating':'bg-blue-50 text-blue-700 border-blue-200',
+  'Heat Pump':       'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'Heating Oil':     'bg-stone-100 text-stone-600 border-stone-300',
+  Pellets:           'bg-lime-50 text-lime-700 border-lime-200',
 }
 
-export function PropertyCard({ property, selected, onClick }: PropertyCardProps) {
+// Deterministic fake stats seeded by property id
+function fakeStats(id: number) {
+  const base = ((id * 7919) % 800) + 400
+  return {
+    kwh:   Math.round(base * 100) / 10,
+    co2:   Math.round(base * 0.22 * 10) / 10,
+  }
+}
+
+export function PropertyCard({ property, selected, onClick, onDetails }: PropertyCardProps) {
   const badgeClass = SOURCE_COLORS[property.energysource] ?? 'bg-stone-100 text-stone-600 border-stone-300'
+  const stats = fakeStats(property.id)
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'w-full rounded-md border bg-white p-4 text-left shadow-sm transition-all duration-150',
-        'hover:shadow-md hover:border-stone-300',
-        selected
-          ? 'border-[#E30613] ring-1 ring-[#E30613]'
-          : 'border-stone-200',
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <BuildingOffice2Icon
-              className={cn('h-4 w-4 shrink-0', selected ? 'text-[#E30613]' : 'text-stone-400')}
-            />
-            <span className={cn('truncate text-sm font-semibold', selected ? 'text-[#E30613]' : 'text-stone-950')}>
-              {property.name}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 pl-6">
-            <HomeIcon className="h-3.5 w-3.5 shrink-0 text-stone-400" />
-            <span className="text-xs text-stone-500">
-              {property.city} · {property.zipcode}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-col items-end gap-2">
+    <button type="button" onClick={onClick} className="w-full text-left">
+      <Card
+        className={cn(
+          'overflow-hidden transition-all duration-150 hover:shadow-md rounded-md',
+          selected
+            ? 'border-[#E30613] ring-1 ring-[#E30613] shadow-sm'
+            : 'border-stone-200 shadow-sm hover:border-stone-300',
+        )}
+      >
+        {/* Cover image */}
+        <div className="relative h-44 w-full overflow-hidden bg-stone-100">
+          <img
+            src={buildingImageUrl(property.id)}
+            alt={`${property.city} property`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+          {/* Energy source badge */}
           <span
             className={cn(
-              'inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+              'absolute left-2.5 top-2.5 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide backdrop-blur-sm',
               badgeClass,
             )}
           >
-            <BoltIcon className="h-3 w-3" />
             {property.energysource}
           </span>
-          <span className="text-xs text-stone-400">
-            {property.units} Einh.
+          {/* Unit count badge */}
+          <span className="absolute right-2.5 top-2.5 rounded border border-stone-300 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-stone-700 backdrop-blur-sm">
+            {property.unit_count} units
           </span>
         </div>
-      </div>
+
+        <CardContent className="px-4 py-3">
+          {/* Name / city + zipcode */}
+          <p className={cn('text-sm font-semibold leading-snug', selected ? 'text-[#E30613]' : 'text-stone-950')}>
+            {property.name ?? property.city}
+          </p>
+          <p className="mt-0.5 text-xs text-stone-500">
+            <span className="font-medium text-stone-400">ZIP</span> {property.zipcode}
+          </p>
+
+          {/* Stats row */}
+          <div className="mt-3 flex gap-3 border-t border-stone-100 pt-3">
+            <div className="flex-1">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Consumption</p>
+              <p className="mt-0.5 text-sm font-semibold text-stone-900">{stats.kwh} <span className="text-xs font-normal text-stone-400">kWh</span></p>
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">CO₂</p>
+              <p className="mt-0.5 text-sm font-semibold text-stone-900">{stats.co2} <span className="text-xs font-normal text-stone-400">kg</span></p>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            className="mt-3 h-7 w-full rounded-md bg-[#E30613] text-xs text-white hover:bg-[#c00510]"
+            onClick={(e) => { e.stopPropagation(); onDetails?.() }}
+          >
+            More Details
+          </Button>
+        </CardContent>
+      </Card>
     </button>
   )
 }

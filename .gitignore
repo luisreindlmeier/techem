@@ -34,7 +34,6 @@ venv/
 # Environment
 .env
 .env.*
-!.env.example
 
 # OS and editor noise
 .DS_Store

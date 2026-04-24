@@ -1,14 +1,16 @@
+import { useEffect, useRef, useState } from 'react'
+import lottie from 'lottie-web'
+import type { AnimationItem } from 'lottie-web'
 import {
-  BellIcon,
+  ArrowRightStartOnRectangleIcon,
   BuildingOffice2Icon,
   ChartBarIcon,
-  Cog6ToothIcon,
   Squares2X2Icon,
 } from '@heroicons/react/24/outline'
 
 import { cn } from '@/lib/utils'
 
-export type Page = 'dashboard' | 'portfolio' | 'analytics' | 'alerts' | 'settings'
+export type Page = 'dashboard' | 'portfolio' | 'analytics' | 'settings'
 
 type SidebarNavProps = {
   isMobileOpen: boolean
@@ -18,14 +20,66 @@ type SidebarNavProps = {
 }
 
 const navigationItems: { label: string; page: Page; icon: React.ElementType }[] = [
-  { label: 'Dashboard',  page: 'dashboard',  icon: Squares2X2Icon      },
-  { label: 'Portfolio',  page: 'portfolio',  icon: BuildingOffice2Icon  },
-  { label: 'Analytics',  page: 'analytics',  icon: ChartBarIcon         },
-  { label: 'Alerts',     page: 'alerts',     icon: BellIcon             },
-  { label: 'Settings',   page: 'settings',   icon: Cog6ToothIcon        },
+  { label: 'Dashboard', page: 'dashboard', icon: Squares2X2Icon },
+  { label: 'Portfolio', page: 'portfolio', icon: BuildingOffice2Icon },
+  { label: 'Analytics', page: 'analytics', icon: ChartBarIcon },
 ]
 
+function LottieIcon({
+  path,
+  playing,
+  active,
+  className,
+}: {
+  path: string
+  playing: boolean
+  active: boolean
+  className?: string
+}) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const animRef = useRef<AnimationItem | null>(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const anim = lottie.loadAnimation({
+      container: containerRef.current,
+      renderer: 'svg',
+      loop: false,
+      autoplay: false,
+      path,
+    })
+    animRef.current = anim
+    return () => anim.destroy()
+  }, [path])
+
+  useEffect(() => {
+    const anim = animRef.current
+    if (!anim) return
+    if (playing) {
+      anim.setDirection(1)
+      anim.play()
+    } else {
+      anim.setDirection(-1)
+      anim.play()
+    }
+  }, [playing])
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        'shrink-0 [&_path]:transition-none [&_svg]:overflow-visible',
+        active ? '[&_path]:stroke-[#E30613]' : '[&_path]:stroke-stone-500',
+        className,
+      )}
+    />
+  )
+}
+
 export function SidebarNav({ isMobileOpen, onCloseMobile, activePage, onNavigate }: SidebarNavProps) {
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [settingsHovered, setSettingsHovered] = useState(false)
+
   return (
     <>
       <div
@@ -78,6 +132,59 @@ export function SidebarNav({ isMobileOpen, onCloseMobile, activePage, onNavigate
               )
             })}
           </nav>
+
+          <div className="border-t border-stone-200 p-2">
+            {userMenuOpen && (
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(false)}
+                className="mb-0.5 flex w-full items-center gap-3 rounded-md px-3 py-2 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900"
+              >
+                <ArrowRightStartOnRectangleIcon className="h-4 w-4 shrink-0" />
+                <span className="text-xs font-medium">Sign out</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((o) => !o)}
+                className={cn(
+                  'flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-2 transition-colors',
+                  userMenuOpen ? 'bg-stone-100' : 'hover:bg-stone-100',
+                )}
+              >
+                <img
+                  src="/futury-logo.png"
+                  alt="Futury"
+                  className="h-9 w-9 shrink-0 rounded-md object-contain"
+                />
+                <div className="flex min-w-0 flex-col text-left">
+                  <span className="truncate text-xs font-semibold text-stone-900">Futury</span>
+                  <span className="truncate text-[10px] text-stone-400">Premium License</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate('settings')
+                  onCloseMobile()
+                }}
+                onMouseEnter={() => setSettingsHovered(true)}
+                onMouseLeave={() => setSettingsHovered(false)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md"
+                title="Settings"
+              >
+                <LottieIcon
+                  path="/animations/settings.json"
+                  playing={settingsHovered || activePage === 'settings'}
+                  active={activePage === 'settings'}
+                  className="h-5 w-5"
+                />
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
     </>

@@ -1,0 +1,32 @@
+const BASE = 'https://images.unsplash.com/photo'
+const PARAMS = 'auto=format&fit=crop&w=640&h=260&q=80'
+
+const IMAGES: Record<number, string> = {
+  1:  `${BASE}-1545324418-cc1a3fa10c00?${PARAMS}`,
+  2:  `${BASE}-1486325212027-8081e485255e?${PARAMS}`,
+  3:  `${BASE}-1564013799919-ab600027ffc6?${PARAMS}`,
+  4:  `${BASE}-1568605114967-8130f3a36994?${PARAMS}`,
+  5:  `${BASE}-1570129477492-45c003edd2be?${PARAMS}`,
+  6:  `${BASE}-1580587771525-78b9dba3b914?${PARAMS}`,
+  7:  `${BASE}-1583608205776-bfd35f0d9f83?${PARAMS}`,
+  8:  `${BASE}-1600585154340-be6161a56a0c?${PARAMS}`,
+  9:  `${BASE}-1600596542815-ffad4c1539a9?${PARAMS}`,
+  10: `${BASE}-1613490493576-7fde63acd811?${PARAMS}`,
+  11: `${BASE}-1628744448840-55bdb2497bd4?${PARAMS}`,
+  12: `${BASE}-1524230572899-a752b3835840?${PARAMS}`,
+  13: `${BASE}-1487958449943-2429e8be8625?${PARAMS}`,
+  14: `${BASE}-1503387762-592deb58ef4e?${PARAMS}`,
+  15: `${BASE}-1465301103308-b8e5bad6abf8?${PARAMS}`,
+  16: `${BASE}-1558618666-fcd25c85cd64?${PARAMS}`,
+  17: `${BASE}-1509822929464-a3b658c1df55?${PARAMS}`,
+  18: `${BASE}-1548438294-1ad5d5f4f063?${PARAMS}`,
+  19: `${BASE}-1542361345-89e58247f2d5?${PARAMS}`,
+  20: `${BASE}-1520637836993-bdc480c2fb6d?${PARAMS}`,
+  21: `${BASE}-1501183638710-841dd1904471?${PARAMS}`,
+}
+
+const FALLBACK = `${BASE}-1487958449943-2429e8be8625?${PARAMS}`
+
+export function buildingImageUrl(propertyId: number): string {
+  return IMAGES[propertyId] ?? FALLBACK
+}

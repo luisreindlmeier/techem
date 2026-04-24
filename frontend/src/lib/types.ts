@@ -1,8 +1,15 @@
 export type PropertyItem = {
   id: number
+  name: string | null
+  street: string | null
   city: string
   zipcode: string
   energysource: string
+  unit_count: number
+  lat: number | null
+  lng: number | null
+  footprint_polygon: number[][][] | null
+  building_height: number
 }
 
 export type MetricPoint = {

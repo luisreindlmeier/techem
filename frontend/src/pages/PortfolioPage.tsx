@@ -1,26 +1,92 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import type { Property } from '@/data/properties'
+import type { PropertyItem } from '@/lib/types'
 import { PropertyList } from '@/components/PropertyList'
 import { MapSidebar } from '@/components/MapSidebar'
+import { BuildingDetailPage } from './BuildingDetailPage'
 
-export function PortfolioPage() {
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [mapOpen, setMapOpen] = useState(true)
+export function PortfolioPage({
+  selectedPropertyId,
+  onSelectProperty,
+  resetKey,
+  properties,
+  propertiesLoading,
+  propertiesError,
+}: {
+  selectedPropertyId: number | null
+  onSelectProperty?: (id: number | null) => void
+  resetKey?: number
+  properties: PropertyItem[]
+  propertiesLoading: boolean
+  propertiesError: string | null
+}) {
+  const [selectedIds, setSelectedIds]       = useState<Set<number>>(new Set())
+  const [mapOpen, setMapOpen]               = useState(true)
+  const [detailProperty, setDetailProperty] = useState<PropertyItem | null>(null)
 
-  function handleSelect(property: Property) {
-    setSelectedId((prev) => (prev === property.id ? null : property.id))
+  const prevSelectedRef = useRef<number | null>(selectedPropertyId)
+
+  useEffect(() => {
+    if (resetKey === undefined) return
+    setDetailProperty(null)
+  }, [resetKey])
+
+  useEffect(() => {
+    const prev = prevSelectedRef.current
+    prevSelectedRef.current = selectedPropertyId
+    setSelectedIds((ids) => {
+      const next = new Set(ids)
+      if (prev !== null) next.delete(prev)
+      if (selectedPropertyId !== null) next.add(selectedPropertyId)
+      return next
+    })
+  }, [selectedPropertyId])
+
+  function handleOpenDetailById(id: number) {
+    const property = properties.find((p) => p.id === id)
+    if (property) { setDetailProperty(property); onSelectProperty?.(id) }
+  }
+
+  function handleToggleSelect(property: PropertyItem) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(property.id)) next.delete(property.id)
+      else next.add(property.id)
+      return next
+    })
+  }
+
+  if (detailProperty) {
+    return (
+      <BuildingDetailPage
+        property={detailProperty}
+        onBack={() => setDetailProperty(null)}
+      />
+    )
   }
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Property list — grows to fill remaining space */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <PropertyList selectedId={selectedId} onSelect={handleSelect} />
+        <PropertyList
+          properties={properties}
+          loading={propertiesLoading}
+          error={propertiesError}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onDetails={(p) => { setDetailProperty(p); onSelectProperty?.(p.id) }}
+          mapOpen={mapOpen}
+          onToggleMap={() => setMapOpen((prev) => !prev)}
+        />
       </div>
 
-      {/* Collapsible map panel + toggle button */}
-      <MapSidebar isOpen={mapOpen} onToggle={() => setMapOpen((prev) => !prev)} />
+      <MapSidebar
+        isOpen={mapOpen}
+        properties={properties}
+        selectedPropertyId={selectedPropertyId}
+        onSelectProperty={onSelectProperty}
+        onOpenDetails={handleOpenDetailById}
+      />
     </div>
   )
 }
