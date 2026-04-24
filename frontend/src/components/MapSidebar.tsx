@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { Map, Layer } from 'react-map-gl/maplibre'
-import type { Map as MaplibreGL } from 'maplibre-gl'
+import { Map, Layer, Source } from 'react-map-gl/maplibre'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 
 import { cn } from '@/lib/utils'
@@ -17,22 +16,20 @@ const MAP_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
 
+// Centered on Westerbachstraße 47, 60489 Frankfurt am Main
 const INITIAL_VIEW_STATE = {
-  longitude: 13.405,
-  latitude:  52.52,
-  zoom:      13.5,
+  longitude: 8.6011537,
+  latitude:  50.1218279,
+  zoom:      17,
   pitch:     60,
   bearing:   -20,
 }
 
-// The coordinate we want to highlight — Rotes Rathaus, Berlin
-const HIGHLIGHT_TARGET: [number, number] = [13.4091, 52.5188]
-
 // ---------------------------------------------------------------------------
-// Buildings layer — color/opacity driven by MapLibre feature-state
+// Gray buildings layer (all buildings, MapTiler source)
 // ---------------------------------------------------------------------------
 
-const BUILDINGS_3D_LAYER = {
+const BUILDINGS_LAYER = {
   id:   'buildings-3d',
   type: 'fill-extrusion' as const,
   source: 'maptiler_planet',
@@ -40,16 +37,11 @@ const BUILDINGS_3D_LAYER = {
   minzoom: 12,
   paint: {
     'fill-extrusion-color': [
-      'case',
-      ['boolean', ['feature-state', 'highlighted'], false],
-      '#E30613',
-      [
-        'interpolate', ['linear'],
-        ['coalesce', ['get', 'render_height'], 0],
-        0,  '#d4d0cb',
-        20, '#dedad5',
-        60, '#e8e5e0',
-      ],
+      'interpolate', ['linear'],
+      ['coalesce', ['get', 'render_height'], 0],
+      0,  '#d4d0cb',
+      20, '#dedad5',
+      60, '#e8e5e0',
     ],
     'fill-extrusion-height': [
       'interpolate', ['linear'], ['zoom'],
@@ -57,12 +49,59 @@ const BUILDINGS_3D_LAYER = {
       13, ['coalesce', ['get', 'render_height'], 4],
     ],
     'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-    'fill-extrusion-opacity': [
-      'case',
-      ['boolean', ['feature-state', 'highlighted'], false],
-      1.0,
-      0.88,
-    ],
+    'fill-extrusion-opacity': 0.88,
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Exact building footprint — OSM way 88689086
+// Westerbachstraße 47, 60489 Frankfurt am Main
+// ---------------------------------------------------------------------------
+
+const TARGET_BUILDING_GEOJSON = {
+  type: 'Feature' as const,
+  properties: { height: 16, base: 0 },
+  geometry: {
+    type: 'Polygon' as const,
+    coordinates: [[
+      [8.6010514, 50.1221653],
+      [8.6009076, 50.1221578],
+      [8.6009061, 50.1221268],
+      [8.6005614, 50.1221337],
+      [8.6005639, 50.1222149],
+      [8.6005696, 50.1223134],
+      [8.6006089, 50.1223159],
+      [8.6017460, 50.1223882],
+      [8.6017314, 50.1213376],
+      [8.6014674, 50.1212676],
+      [8.6014788, 50.1216462],
+      [8.6006162, 50.1216603],
+      [8.6006256, 50.1220455],
+      [8.6008956, 50.1220437],
+      [8.6008923, 50.1218260],
+      [8.6014780, 50.1218081],
+      [8.6014817, 50.1220626],
+      [8.6013552, 50.1220634],
+      [8.6013562, 50.1221345],
+      [8.6014623, 50.1221338],
+      [8.6014633, 50.1221970],
+      [8.6012110, 50.1221774],
+      [8.6012192, 50.1221326],
+      [8.6010596, 50.1221205],
+      [8.6010514, 50.1221653],
+    ]],
+  },
+}
+
+const HIGHLIGHT_LAYER = {
+  id:   'building-highlight',
+  type: 'fill-extrusion' as const,
+  source: 'target-building',
+  paint: {
+    'fill-extrusion-color':   '#E30613',
+    'fill-extrusion-height':  ['get', 'height'],
+    'fill-extrusion-base':    ['get', 'base'],
+    'fill-extrusion-opacity': 1.0,
   },
 }
 
@@ -82,56 +121,12 @@ type HoverInfo = { x: number; y: number; name?: string; height?: number }
 type MapSidebarProps = { isOpen: boolean; onToggle: () => void }
 
 // ---------------------------------------------------------------------------
-// Highlight the first real tile building near HIGHLIGHT_TARGET
-// ---------------------------------------------------------------------------
-
-function highlightNearestBuilding(map: MaplibreGL) {
-  const center = map.project(HIGHLIGHT_TARGET)
-  const offsets: [number, number][] = [
-    [0, 0],   [12, 0],  [-12, 0], [0, 12],  [0, -12],
-    [20, 0],  [-20, 0], [0, 20],  [0, -20],
-    [14, 14], [-14, 14],[14, -14],[-14, -14],
-    [28, 0],  [-28, 0], [0, 28],  [0, -28],
-    [35, 0],  [-35, 0], [0, 35],
-  ]
-  for (const [dx, dy] of offsets) {
-    const feats = map.queryRenderedFeatures(
-      [center.x + dx, center.y + dy],
-      { layers: ['buildings-3d'] },
-    )
-    const bld = feats[0]
-    if (bld?.id != null) {
-      map.setFeatureState(
-        { source: 'maptiler_planet', sourceLayer: 'building', id: bld.id },
-        { highlighted: true },
-      )
-      return
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH)
   const [hoverInfo, setHoverInfo]   = useState<HoverInfo | null>(null)
-  const mapRef      = useRef<MaplibreGL | null>(null)
-  const highlighted = useRef(false)
-
-  // Retry highlight when panel first opens (canvas may be 0px during initial load)
-  useEffect(() => {
-    if (!isOpen || highlighted.current || !mapRef.current) return
-    const map = mapRef.current
-    const tryHighlight = () => {
-      highlightNearestBuilding(map)
-      highlighted.current = true
-    }
-    if (map.isStyleLoaded()) {
-      map.once('idle', tryHighlight)
-    }
-  }, [isOpen])
 
   // --- drag-to-resize -------------------------------------------------------
   const isDragging = useRef(false)
@@ -167,15 +162,6 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
     }
   }, [])
 
-  // --- Map load -------------------------------------------------------------
-  function handleMapLoad(e: { target: MaplibreGL }) {
-    mapRef.current = e.target
-    e.target.once('idle', () => {
-      highlightNearestBuilding(e.target)
-      highlighted.current = true
-    })
-  }
-
   // --- Hover tooltip --------------------------------------------------------
   function handleMouseMove(e: {
     point:     { x: number; y: number }
@@ -197,7 +183,7 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
   // ---------------------------------------------------------------------------
   return (
     <>
-      {/* Toggle tab — always fixed to the right edge of the viewport */}
+      {/* Toggle tab */}
       <button
         type="button"
         onClick={onToggle}
@@ -214,15 +200,8 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
       </button>
 
       {/*
-        PANEL DIV
-        ─────────
-        • position: relative  → establishes a stacking/positioning context for
-          the absolutely-positioned inner container
-        • height: 100%        → explicit height so children can resolve their own
-          heights. Without this, flex-stretch height is implicit and browsers may
-          refuse to resolve percentage heights on descendants.
-        • overflow: hidden    → clips the oversized inner container (80vw) to the
-          panel's actual width during transitions
+        PANEL — position:relative + explicit height:100% so the absolutely-
+        positioned inner container can resolve its own height reliably.
       */}
       <div
         className="flex-shrink-0 overflow-hidden border-l border-stone-200 transition-[width] duration-300 ease-in-out"
@@ -233,13 +212,9 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
         }}
       >
         {/*
-          INNER CONTAINER
-          ───────────────
-          • position: absolute; top:0; bottom:0  → fills parent height exactly,
-            independent of any percentage-chain issues
-          • width: 80vw   → intentionally wider than the panel so the MapLibre
-            WebGL canvas has real pixel dimensions even while the panel is
-            animating from 0 to its open width (overflow:hidden clips the rest)
+          INNER CONTAINER — absolute + top/bottom:0 guarantees full height.
+          Width is intentionally oversized (80vw) so the canvas has real pixels
+          even while the panel animates; overflow:hidden on the parent clips it.
         */}
         <div
           style={{
@@ -251,23 +226,30 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
             minWidth: '320px',
           }}
         >
-          {/* Drag handle — left edge turns red on hover/active */}
+          {/* Drag handle */}
           <div
             className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-col-resize bg-transparent transition-colors hover:bg-[#E30613]/25 active:bg-[#E30613]/40"
             onMouseDown={handleDragStart}
           />
 
-          {/* MapLibre map — width/height fill the inner container */}
           <Map
             initialViewState={INITIAL_VIEW_STATE}
             mapStyle={MAP_STYLE}
             style={{ width: '100%', height: '100%' }}
-            interactiveLayerIds={MAPTILER_KEY ? ['buildings-3d'] : []}
-            onLoad={handleMapLoad as never}
+            interactiveLayerIds={
+              MAPTILER_KEY ? ['buildings-3d'] : []
+            }
             onMouseMove={handleMouseMove as never}
             onMouseLeave={() => setHoverInfo(null)}
           >
-            {MAPTILER_KEY && <Layer {...(BUILDINGS_3D_LAYER as never)} />}
+            {MAPTILER_KEY && (
+              <Layer {...(BUILDINGS_LAYER as never)} />
+            )}
+
+            {/* Exact building footprint — always shown, independent of tile source */}
+            <Source id="target-building" type="geojson" data={TARGET_BUILDING_GEOJSON}>
+              <Layer {...(HIGHLIGHT_LAYER as never)} />
+            </Source>
           </Map>
 
           {/* Hover tooltip */}
@@ -286,7 +268,9 @@ export function MapSidebar({ isOpen, onToggle }: MapSidebarProps) {
                 <p className="font-semibold text-white">{hoverInfo.name}</p>
               )}
               {hoverInfo.height != null && (
-                <p className="text-stone-300">{Math.round(Number(hoverInfo.height))} m Höhe</p>
+                <p className="text-stone-300">
+                  {Math.round(Number(hoverInfo.height))} m Höhe
+                </p>
               )}
               {!hoverInfo.name && hoverInfo.height == null && (
                 <p className="text-stone-300">Gebäude</p>
