@@ -10,6 +10,7 @@ export function PortfolioPage({
   onSelectProperty,
   resetKey,
   openDetailId,
+  onOpenDetail,
   onCloseDetail,
   properties,
   propertiesLoading,
@@ -19,6 +20,7 @@ export function PortfolioPage({
   onSelectProperty?: (id: number | null) => void
   resetKey?: number
   openDetailId?: number | null
+  onOpenDetail?: (id: number) => void
   onCloseDetail?: () => void
   properties: PropertyItem[]
   propertiesLoading: boolean
@@ -54,7 +56,11 @@ export function PortfolioPage({
 
   function handleOpenDetailById(id: number) {
     const property = properties.find((p) => p.id === id)
-    if (property) { setDetailProperty(property); onSelectProperty?.(id) }
+    if (property) {
+      setDetailProperty(property)
+      onSelectProperty?.(id)
+      onOpenDetail?.(id)
+    }
   }
 
   function handleToggleSelect(property: PropertyItem) {

@@ -16,6 +16,7 @@ type SiteHeaderProps = {
   onPropertyChange: (id: number | null) => void
   onOpenDetail?: (id: number) => void
   properties: PropertyItem[]
+  lockedPropertyId?: number | null
 }
 
 const CLOSED_FRAME = 0
@@ -43,6 +44,7 @@ export function SiteHeader({
   onPropertyChange,
   onOpenDetail,
   properties,
+  lockedPropertyId,
 }: SiteHeaderProps) {
   const mobileMenuAnimationHostRef = useRef<HTMLSpanElement | null>(null)
   const mobileMenuAnimationRef     = useRef<AnimationItem | null>(null)
@@ -86,8 +88,12 @@ export function SiteHeader({
   }, [isMobileSidebarOpen])
 
   const trimmed    = searchQuery.trim()
+  const searchable: PropertyItem[] = lockedPropertyId != null
+    ? properties.filter((p) => p.id === lockedPropertyId)
+    : properties
+  const dropdownOptions: PropertyItem[] = searchable
   const suggestions: PropertyItem[] = trimmed.length > 0
-    ? properties.filter((p) => matches(p, trimmed)).slice(0, MAX_SUGGESTIONS)
+    ? searchable.filter((p) => matches(p, trimmed)).slice(0, MAX_SUGGESTIONS)
     : []
   const open = showSuggestions && suggestions.length > 0
 
@@ -195,8 +201,7 @@ export function SiteHeader({
               }}
               aria-label="Select building"
             >
-              <option value="">All buildings</option>
-              {properties.map((p) => (
+              {dropdownOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name ?? p.city} · {p.zipcode}
                 </option>

@@ -12,7 +12,7 @@ import {
 } from 'recharts'
 
 import { cn } from '@/lib/utils'
-import { CHART, TOOLTIP_CONTENT_STYLE } from '@/lib/chartColors'
+import { CHART, TOOLTIP_CONTENT_STYLE, heatColor } from '@/lib/chartColors'
 
 type GranularPoint = { label: string; Apartment: number; Average: number }
 
@@ -25,7 +25,7 @@ type ComparisonChartProps = {
   weeklyData: GranularPoint[]
   dailyData: GranularPoint[]
   aptLabel: string
-  accentColor?: string
+  aggregated?: boolean
 }
 
 const GRAN_LABELS: Record<Granularity, string> = {
@@ -35,7 +35,7 @@ const GRAN_LABELS: Record<Granularity, string> = {
 }
 
 export function ComparisonChart({
-  title, unit, monthlyData, weeklyData, dailyData, aptLabel, accentColor = CHART.primary,
+  title, unit, monthlyData, weeklyData, dailyData, aptLabel, aggregated = false,
 }: ComparisonChartProps) {
   const [gran, setGran] = useState<Granularity>('monthly')
 
@@ -49,6 +49,10 @@ export function ComparisonChart({
     () => data.length === 0 ? 0 : Math.round(data.reduce((s, d) => s + d.Average, 0) / data.length),
     [data],
   )
+  const accentColor = useMemo(
+    () => avgBldg > 0 ? heatColor(avgApt / avgBldg) : CHART.primary,
+    [avgApt, avgBldg],
+  )
   const BLDG_AVG_COLOR = '#78716c'
 
   const tickFormatter = gran === 'weekly'
@@ -60,7 +64,9 @@ export function ComparisonChart({
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
-          <p className="text-[11px] text-stone-400">{aptLabel} vs. building average</p>
+          <p className="text-[11px] text-stone-400">
+            {aggregated ? 'Whole building · aggregated total' : `${aptLabel} vs. building average`}
+          </p>
         </div>
         <div className="flex shrink-0 gap-0.5 rounded-md border border-stone-200 p-0.5">
           {(Object.keys(GRAN_LABELS) as Granularity[]).map(g => (
@@ -83,9 +89,11 @@ export function ComparisonChart({
           <span style={{ color: accentColor }}>
             avg {avgApt} {unit}
           </span>
-          <span style={{ color: BLDG_AVG_COLOR }}>
-            bldg {avgBldg} {unit}
-          </span>
+          {!aggregated && (
+            <span style={{ color: BLDG_AVG_COLOR }}>
+              bldg {avgBldg} {unit}
+            </span>
+          )}
         </div>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} barCategoryGap={gran === 'weekly' ? '10%' : '32%'} barGap={2} margin={{ left: -4, right: 4, top: 4, bottom: 0 }}>
@@ -109,21 +117,25 @@ export function ComparisonChart({
               cursor={{ fill: CHART.cursor }}
             />
             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-            <ReferenceLine
-              y={avgBldg}
-              stroke={BLDG_AVG_COLOR}
-              strokeDasharray="3 4"
-              strokeWidth={1}
-              strokeOpacity={0.7}
-            />
+            {!aggregated && (
+              <ReferenceLine
+                y={avgBldg}
+                stroke={BLDG_AVG_COLOR}
+                strokeDasharray="3 4"
+                strokeWidth={1}
+                strokeOpacity={0.7}
+              />
+            )}
             <ReferenceLine
               y={avgApt}
               stroke={accentColor}
               strokeDasharray="5 3"
               strokeWidth={1.5}
             />
-            <Bar dataKey="Apartment" name={aptLabel} fill={accentColor} radius={[2, 2, 0, 0]} />
-            <Bar dataKey="Average" name="Bldg. average" fill={CHART.secondary} radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Apartment" name={aggregated ? 'Whole building' : aptLabel} fill={accentColor} radius={[2, 2, 0, 0]} />
+            {!aggregated && (
+              <Bar dataKey="Average" name="Bldg. average" fill={CHART.secondary} radius={[2, 2, 0, 0]} />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>

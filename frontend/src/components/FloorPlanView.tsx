@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import { FLOORPLAN } from '@/lib/chartColors'
+import { FLOORPLAN, heatColor, hexToRgba } from '@/lib/chartColors'
 
 // Same footprint as IsometricBuilding, rendered as a top-face slice
 // Projection: px = (x - z) * HS + OX,  py = (x + z) * VS
@@ -49,9 +49,13 @@ type FloorPlanViewProps = {
   selectedAptIdx: number
   onSelectApt: (idx: number) => void
   floor: number
+  ratios?: (number | undefined)[]
+  selectAll?: boolean
 }
 
-export function FloorPlanView({ selectedAptIdx, onSelectApt, floor }: FloorPlanViewProps) {
+export function FloorPlanView({
+  selectedAptIdx, onSelectApt, floor, ratios = [], selectAll = false,
+}: FloorPlanViewProps) {
   const [hov, setHov] = useState<number | null>(null)
 
   // Compute viewBox bounds dynamically
@@ -72,10 +76,23 @@ export function FloorPlanView({ selectedAptIdx, onSelectApt, floor }: FloorPlanV
       aria-label="Floor plan"
     >
       {APTS.map((apt) => {
-        const sel = selectedAptIdx === apt.idx
+        const sel = selectAll || selectedAptIdx === apt.idx
         const h   = hov === apt.idx && !sel
-        const fill   = sel ? FLOORPLAN.fillSelected : h ? FLOORPLAN.fillHover : FLOORPLAN.fillIdle
-        const stroke = sel ? FLOORPLAN.labelSelected : FLOORPLAN.strokeIdle
+        const ratio = ratios[apt.idx]
+        const heat  = ratio != null ? heatColor(ratio) : null
+        const fill = heat
+          ? sel
+            ? hexToRgba(heat, 0.22)
+            : h
+              ? hexToRgba(heat, 0.12)
+              : hexToRgba(heat, 0.06)
+          : sel ? FLOORPLAN.fillSelected : h ? FLOORPLAN.fillHover : FLOORPLAN.fillIdle
+        const stroke = sel
+          ? (heat ?? FLOORPLAN.labelSelected)
+          : FLOORPLAN.strokeIdle
+        const labelFill = sel
+          ? (heat ?? FLOORPLAN.labelSelected)
+          : FLOORPLAN.labelIdle
         const [lpx, lpy] = proj(apt.lx, apt.lz)
 
         return (
@@ -100,7 +117,7 @@ export function FloorPlanView({ selectedAptIdx, onSelectApt, floor }: FloorPlanV
               dominantBaseline="middle"
               fontSize="9"
               fontWeight={sel ? '700' : '500'}
-              fill={sel ? FLOORPLAN.labelSelected : FLOORPLAN.labelIdle}
+              fill={labelFill}
               fontFamily="inherit"
             >
               {floor}{apt.label}

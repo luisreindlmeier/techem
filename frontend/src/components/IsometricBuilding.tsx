@@ -1,11 +1,13 @@
 import { useState } from 'react'
 
-import { BRAND, ISO_BUILDING } from '@/lib/chartColors'
+import { ISO_BUILDING, heatColor, isoPaletteFromHeat } from '@/lib/chartColors'
 
 type IsometricBuildingProps = {
   totalFloors: number
-  selectedFloor: number // 1-indexed
+  selectedFloor: number // 1-indexed, or 0 for "whole building"
   onSelectFloor: (floor: number) => void
+  floorRatios?: (number | undefined)[] // index 0 → floor 1
+  selectAll?: boolean
 }
 
 const HSTEP = 42
@@ -45,7 +47,9 @@ function sxy(cx: number, cy: number, x: number, z: number, y: number): [number, 
   return [cx + (x - z) * HSTEP, cy - y * YSTEP + (x + z) * VSTEP]
 }
 
-export function IsometricBuilding({ totalFloors, selectedFloor, onSelectFloor }: IsometricBuildingProps) {
+export function IsometricBuilding({
+  totalFloors, selectedFloor, onSelectFloor, floorRatios = [], selectAll = false,
+}: IsometricBuildingProps) {
   const [hov, setHov] = useState<number | null>(null)
   const { cx, cy, svgW, svgH, lblX, vbOff } = layout(totalFloors)
   const p  = (x: number, z: number, y: number) => sp(cx, cy, x, z, y)
@@ -57,10 +61,14 @@ export function IsometricBuilding({ totalFloors, selectedFloor, onSelectFloor }:
       {floors.map((floorNum) => {
         const fi  = floorNum - 1
         const y0  = fi, y1 = fi + 1
-        const sel = selectedFloor === floorNum
+        const sel = selectAll || selectedFloor === floorNum
         const h   = hov === floorNum && !sel
+        const ratio = floorRatios[fi]
+        const heatPalette = sel && ratio != null ? isoPaletteFromHeat(heatColor(ratio)) : null
 
-        const palette = sel ? ISO_BUILDING.selected : h ? ISO_BUILDING.hovered : ISO_BUILDING.idle
+        const palette = heatPalette
+          ? heatPalette
+          : sel ? ISO_BUILDING.selected : h ? ISO_BUILDING.hovered : ISO_BUILDING.idle
         const topFill = palette.top
         const front   = palette.front
         const step    = palette.step
@@ -135,8 +143,11 @@ export function IsometricBuilding({ totalFloors, selectedFloor, onSelectFloor }:
       {floors.map((floorNum) => {
         const fi      = floorNum - 1
         const [, ly]  = xy(0, 1, fi - 0.2)
-        const sel     = selectedFloor === floorNum
-        const col     = sel ? BRAND.dark : '#888888'
+        const sel     = selectAll || selectedFloor === floorNum
+        const ratio   = floorRatios[fi]
+        const col     = sel
+          ? (ratio != null ? heatColor(ratio) : '#222222')
+          : '#888888'
         return (
           <g
             key={`lbl${floorNum}`}

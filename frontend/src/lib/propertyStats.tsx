@@ -44,3 +44,12 @@ export function usePropertyStats(propertyId: number): PropertyStats | null {
 export function usePropertyStatsMap(): Record<number, PropertyStats> {
   return useContext(PropertyStatsContext).statsById
 }
+
+export function usePropertyStatsAverages(): { avgEnergy: number; avgCo2: number } {
+  const { statsById } = useContext(PropertyStatsContext)
+  const values = Object.values(statsById)
+  if (values.length === 0) return { avgEnergy: 0, avgCo2: 0 }
+  const avgEnergy = values.reduce((s, v) => s + v.annual_energy_kwh, 0) / values.length
+  const avgCo2    = values.reduce((s, v) => s + v.annual_co2_kg,    0) / values.length
+  return { avgEnergy, avgCo2 }
+}

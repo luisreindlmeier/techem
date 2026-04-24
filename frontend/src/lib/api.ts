@@ -1,9 +1,14 @@
 import type {
+  AISummaryResponse,
   BuildingOverview,
+  CRREMSummaryResponse,
+  DashboardAlertsResponse,
+  DashboardKPIs,
   ForecastGranularity,
   ForecastResponse,
   ForecastTimelineResponse,
   OverviewResponse,
+  PortfolioTrendResponse,
   PropertyItem,
   PropertyStats,
   UnitForecastResponse,
@@ -51,6 +56,28 @@ export function getUnitForecastTimeline(
   return fetchJson<ForecastTimelineResponse>(
     `/api/v1/properties/${propertyId}/units/${floor}/${aptIdx}/forecast-timeline?granularity=${granularity}`,
   )
+}
+
+// ---------- Dashboard ----------
+
+export function getDashboardKPIs(): Promise<DashboardKPIs> {
+  return fetchJson<DashboardKPIs>('/api/v1/dashboard/kpis')
+}
+
+export function getDashboardAlerts(): Promise<DashboardAlertsResponse> {
+  return fetchJson<DashboardAlertsResponse>('/api/v1/dashboard/alerts')
+}
+
+export function getCRREMSummary(): Promise<CRREMSummaryResponse> {
+  return fetchJson<CRREMSummaryResponse>('/api/v1/crrem/summary')
+}
+
+export function getDashboardAISummary(): Promise<AISummaryResponse> {
+  return fetchJson<AISummaryResponse>('/api/v1/dashboard/ai-summary')
+}
+
+export function getPortfolioTrend(): Promise<PortfolioTrendResponse> {
+  return fetchJson<PortfolioTrendResponse>('/api/v1/dashboard/portfolio-trend')
 }
 
 function mapPropertyRow(row: Record<string, unknown>, hasGeometry: boolean): PropertyItem {

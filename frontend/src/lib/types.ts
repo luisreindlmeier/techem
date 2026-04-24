@@ -107,6 +107,8 @@ export type ForecastTimelinePoint = {
   label: string
   actual: number | null
   forecast: number | null
+  average: number | null
+  temperature: number | null
 }
 
 export type ForecastTimelineResponse = {
@@ -117,4 +119,75 @@ export type ForecastTimelineResponse = {
   model: string
   points: ForecastTimelinePoint[]
   cutoff_label: string
+}
+
+// ---------- Dashboard domain ----------
+
+export type AlertPriority = 'critical' | 'warning' | 'info'
+export type AlertType =
+  | 'mold_risk'
+  | 'overheating'
+  | 'vacancy'
+  | 'heating_failure'
+  | 'forecast_spike'
+
+export type DashboardAlert = {
+  id: string
+  type: AlertType
+  priority: AlertPriority
+  property_id: number
+  property_name: string
+  unit_id: string | null
+  floor: number | null
+  apt_idx: number | null
+  title: string
+  message: string
+  timestamp: string
+}
+
+export type DashboardAlertsResponse = {
+  alerts: DashboardAlert[]
+  generated_at: string
+}
+
+export type DashboardKPIs = {
+  total_properties: number
+  total_annual_co2_kg: number
+  avg_energy_intensity_kwh_per_m2: number
+  flagged_properties: number
+}
+
+export type CRREMStatus = 'critical' | 'endangered' | 'ok'
+
+export type CRREMPropertyStatus = {
+  property_id: number
+  property_name: string
+  city: string
+  misalignment_year: number
+  status: CRREMStatus
+  per_unit_co2_kg: number
+}
+
+export type CRREMSummaryResponse = {
+  critical_count: number
+  endangered_count: number
+  ok_count: number
+  top_at_risk: CRREMPropertyStatus[]
+}
+
+export type AISummaryResponse = {
+  summary: string
+  generated_at: string
+}
+
+export type PortfolioTrendPoint = {
+  label: string
+  energy_kwh: number
+  co2_kg: number
+  cost_eur: number
+  avg_temp_c: number | null
+}
+
+export type PortfolioTrendResponse = {
+  points: PortfolioTrendPoint[]
 }

@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PropertyItem } from '@/lib/types'
 import { buildingImageUrl } from '@/lib/buildingImages'
-import { usePropertyStats } from '@/lib/propertyStats'
+import { usePropertyStats, usePropertyStatsAverages } from '@/lib/propertyStats'
+import { heatColor } from '@/lib/chartColors'
 
 type PropertyCardProps = {
   property: PropertyItem
@@ -34,6 +35,14 @@ function formatKg(v: number): string {
 export function PropertyCard({ property, selected, onClick, onDetails }: PropertyCardProps) {
   const badgeClass = SOURCE_COLORS[property.energysource] ?? 'bg-stone-100 text-stone-600 border-stone-300'
   const stats = usePropertyStats(property.id)
+  const { avgEnergy, avgCo2 } = usePropertyStatsAverages()
+
+  const energyHeat = stats && avgEnergy > 0 ? heatColor(stats.annual_energy_kwh / avgEnergy) : null
+  const co2Heat    = stats && avgCo2    > 0 ? heatColor(stats.annual_co2_kg    / avgCo2)    : null
+  const combinedRatio = stats && avgEnergy > 0 && avgCo2 > 0
+    ? (stats.annual_energy_kwh / avgEnergy + stats.annual_co2_kg / avgCo2) / 2
+    : null
+  const selectionHeat = combinedRatio != null ? heatColor(combinedRatio) : '#111111'
 
   return (
     <button type="button" onClick={onClick} className="w-full text-left">
@@ -41,9 +50,12 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
         className={cn(
           'overflow-hidden transition-all duration-150 hover:shadow-md rounded-md',
           selected
-            ? 'border-brand ring-1 ring-brand shadow-sm'
+            ? 'ring-1 shadow-sm'
             : 'border-stone-200 shadow-sm hover:border-stone-300',
         )}
+        {...(selected
+          ? { style: { borderColor: selectionHeat, boxShadow: `0 0 0 1px ${selectionHeat}` } as React.CSSProperties }
+          : {})}
       >
         {/* Cover image */}
         <div className="relative h-44 w-full overflow-hidden bg-stone-100">
@@ -70,7 +82,12 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
 
         <CardContent className="px-4 py-3">
           {/* Name / city + zipcode */}
-          <p className={cn('text-sm font-semibold leading-snug', selected ? 'text-brand' : 'text-stone-950')}>
+          <p
+            className="text-sm font-semibold leading-snug"
+            {...(selected
+              ? { style: { color: selectionHeat } as React.CSSProperties }
+              : { style: { color: '#1c1917' } as React.CSSProperties })}
+          >
             {property.name ?? property.city}
           </p>
           <p className="mt-0.5 text-xs text-stone-500">
@@ -81,14 +98,20 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
           <div className="mt-3 flex gap-3 border-t border-stone-100 pt-3">
             <div className="flex-1">
               <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Annual</p>
-              <p className="mt-0.5 text-sm font-semibold text-stone-900">
+              <p
+                className="mt-0.5 text-sm font-semibold"
+                {...{ style: { color: energyHeat ?? '#1c1917' } as React.CSSProperties }}
+              >
                 {stats ? formatKwh(stats.annual_energy_kwh) : '—'}
                 <span className="text-xs font-normal text-stone-400"> kWh</span>
               </p>
             </div>
             <div className="flex-1">
               <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">CO₂</p>
-              <p className="mt-0.5 text-sm font-semibold text-stone-900">
+              <p
+                className="mt-0.5 text-sm font-semibold"
+                {...{ style: { color: co2Heat ?? '#1c1917' } as React.CSSProperties }}
+              >
                 {stats ? formatKg(stats.annual_co2_kg) : '—'}
                 <span className="text-xs font-normal text-stone-400"> kg</span>
               </p>
@@ -97,7 +120,7 @@ export function PropertyCard({ property, selected, onClick, onDetails }: Propert
 
           <Button
             size="sm"
-            className="mt-3 h-7 w-full rounded-md bg-brand text-xs text-white hover:bg-brand-hover"
+            className="mt-3 h-7 w-full rounded-md bg-stone-900 text-xs text-white hover:bg-stone-800"
             onClick={(e) => { e.stopPropagation(); onDetails?.() }}
           >
             View Object

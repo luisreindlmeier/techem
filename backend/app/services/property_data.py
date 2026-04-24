@@ -868,39 +868,56 @@ def get_unit_forecast_timeline(
         window_start = date(today.year, today.month, 1)
         window_end   = _month_end(today)
 
+    total_floors = _total_floors(meta.unit_count) if meta.unit_count > 0 else 5
+    effective_unit_count = meta.unit_count if meta.unit_count > 0 else total_floors * UNITS_PER_FLOOR
+
     # ---- actual daily series (readings or weather-driven synthesis)
     past_start = window_start
     past_end   = min(today, window_end)
     past_daily: dict[date, float] = {}
+    avg_past_daily: dict[date, float] = {}
+    past_readings: list[DailyReading] = []
     if past_start <= past_end:
         past_readings = _load_readings(meta.id, past_start, past_end)
         past_daily = _apt_daily_from_readings(past_readings, floor, apt_idx)
         if not past_daily:
             past_daily = _synthesize_daily_apt_series(meta, floor, apt_idx, past_start, past_end)
+        avg_past_daily = _building_avg_daily(
+            meta, past_readings, past_start, past_end, effective_unit_count, total_floors,
+        )
 
-    # ---- fit HDD × linear model from prior 12 months
+    # ---- fit HDD × linear model from prior 12 months (unit + building average)
     hist_end   = today
     hist_start = hist_end - timedelta(days=365)
     fit_readings = _load_readings(meta.id, hist_start, hist_end)
     fit_daily = _apt_daily_from_readings(fit_readings, floor, apt_idx)
     if not fit_daily:
         fit_daily = _synthesize_daily_apt_series(meta, floor, apt_idx, hist_start, hist_end)
+    fit_avg_daily = _building_avg_daily(
+        meta, fit_readings, hist_start, hist_end, effective_unit_count, total_floors,
+    )
     hist_temps = get_daily_temps(meta.lat, meta.lng, hist_start, hist_end)
     hist_hdds  = heating_degree_days(hist_temps, HDD_BASE_TEMP_C)
     k, base = _fit_linear_hdd_model(fit_daily, hist_hdds)
+    k_avg, base_avg = _fit_linear_hdd_model(fit_avg_daily, hist_hdds)
 
-    # ---- forecast daily series
+    # ---- forecast daily series (unit + building average)
     fc_start = today + timedelta(days=1)
     fc_end   = window_end
     fc_daily: dict[date, float] = {}
+    avg_fc_daily: dict[date, float] = {}
     if fc_start <= fc_end:
         fc_temps = get_daily_temps(meta.lat, meta.lng, fc_start, fc_end)
         fc_hdds  = heating_degree_days(fc_temps, HDD_BASE_TEMP_C)
         d = fc_start
         while d <= fc_end:
             hdd = fc_hdds.get(d.isoformat(), 0.0)
-            fc_daily[d] = max(0.0, k * hdd + base)
+            fc_daily[d]     = max(0.0, k * hdd + base)
+            avg_fc_daily[d] = max(0.0, k_avg * hdd + base_avg)
             d += timedelta(days=1)
+
+    # ---- daily mean temperatures for the full window (drives the °C series)
+    window_temps = get_daily_temps(meta.lat, meta.lng, window_start, window_end)
 
     # ---- bucket into granularity
     points: list[ForecastTimelinePoint] = []
@@ -910,22 +927,44 @@ def get_unit_forecast_timeline(
         nonlocal cutoff_label
         past_sum = 0.0
         future_sum = 0.0
+        avg_sum = 0.0
+        temp_sum = 0.0
+        temp_n = 0
         d = b_start
         while d <= b_end:
+            key = d.isoformat()
             if d <= today:
                 past_sum += past_daily.get(d, 0.0)
+                avg_sum += avg_past_daily.get(d, 0.0)
             else:
                 future_sum += fc_daily.get(d, 0.0)
+                avg_sum += avg_fc_daily.get(d, 0.0)
+            if key in window_temps:
+                temp_sum += window_temps[key]
+                temp_n += 1
             d += timedelta(days=1)
-        has_past = b_start <= today
-        has_future = b_end > today
-        if has_past and has_future:
+        avg_val  = round(avg_sum, 1)
+        temp_val = round(temp_sum / temp_n, 1) if temp_n else None
+        # The bucket containing today is the boundary — carry the same value
+        # on both series so the solid and dashed lines meet visually. For daily
+        # this is today itself (a single-day bucket).
+        is_boundary = b_start <= today <= b_end
+        if is_boundary:
             total = round(past_sum + future_sum, 1)
             cutoff_label = label
-            return ForecastTimelinePoint(label=label, actual=total, forecast=total)
-        if has_past:
-            return ForecastTimelinePoint(label=label, actual=round(past_sum, 1), forecast=None)
-        return ForecastTimelinePoint(label=label, actual=None, forecast=round(future_sum, 1))
+            return ForecastTimelinePoint(
+                label=label, actual=total, forecast=total,
+                average=avg_val, temperature=temp_val,
+            )
+        if b_end <= today:
+            return ForecastTimelinePoint(
+                label=label, actual=round(past_sum, 1), forecast=None,
+                average=avg_val, temperature=temp_val,
+            )
+        return ForecastTimelinePoint(
+            label=label, actual=None, forecast=round(future_sum, 1),
+            average=avg_val, temperature=temp_val,
+        )
 
     if granularity == "monthly":
         for m in range(1, 13):
