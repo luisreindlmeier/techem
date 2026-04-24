@@ -15,16 +15,16 @@ Full-stack prototype for energy and emissions analytics, property mapping, and b
 ```mermaid
 flowchart LR
    User[User Browser]
-   FE[Frontend<br/>React + Vite]
+   FE[Frontend React + Vite]
    API[FastAPI Backend]
-   SB[(Supabase Postgres)]
+   SB[(Supabase DB)]
    CSV[CSV Source Files]
 
    User --> FE
-   FE -->|metrics + forecast| API
-   FE -->|properties (direct query)| SB
-   API -->|daily metrics + forecasting input| SB
-   CSV -->|import script| SB
+   FE -->|metrics and forecast| API
+   FE -->|properties direct query| SB
+   API -->|daily metrics and forecast input| SB
+   CSV -->|import pipeline| SB
 ```
 
 ## Repository Layout
@@ -220,8 +220,8 @@ cd backend
 ```mermaid
 flowchart LR
    Dev[Developer Push] --> GH[GitHub Repository]
-   GH --> R[Railway Service<br/>backend root]
-   GH --> V[Vercel Project<br/>frontend root]
+   GH --> R[Railway Service backend root]
+   GH --> V[Vercel Project frontend root]
    R --> APIURL[Public API URL]
    APIURL --> V
    V --> Browser[End Users]
