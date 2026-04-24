@@ -1,16 +1,34 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.schemas import ForecastResponse, HealthResponse, OverviewResponse, PropertyItem
+from app.schemas import (
+    BuildingOverview,
+    ForecastResponse,
+    ForecastTimelineResponse,
+    HealthResponse,
+    OverviewResponse,
+    PropertyItem,
+    PropertyStats,
+    UnitForecastResponse,
+    UnitHistoryResponse,
+)
 from app.services.forecast import forecast_from_history
+from app.services.property_data import (
+    get_all_property_stats,
+    get_building_overview,
+    get_property_stats,
+    get_unit_forecast,
+    get_unit_forecast_timeline,
+    get_unit_history,
+)
 from app.services.supabase_data import load_metric_points, load_properties
 
-app = FastAPI(title="Techem Energy API", version="0.1.0")
+app = FastAPI(title="Techem Energy API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin, "http://localhost:5173"],
+    allow_origins=[settings.frontend_origin],
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
@@ -55,3 +73,74 @@ def forecast(horizon_days: int = Query(default=30, ge=7, le=365)) -> ForecastRes
         horizon_days=horizon_days,
         points=forecast_points,
     )
+
+
+# ---------------------------------------------------------------------------
+# Building data (property card KPIs + BuildingDetailPage)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/properties/stats", response_model=list[PropertyStats])
+def all_property_stats() -> list[PropertyStats]:
+    """Annual KPIs for every property (used by PropertyCard + ComparisonSheet)."""
+    return get_all_property_stats()
+
+
+@app.get("/api/v1/properties/{property_id}/stats", response_model=PropertyStats)
+def property_stats(property_id: int) -> PropertyStats:
+    stats = get_property_stats(property_id)
+    if stats is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return stats
+
+
+@app.get("/api/v1/properties/{property_id}/overview", response_model=BuildingOverview)
+def property_overview(property_id: int) -> BuildingOverview:
+    """All units with annual energy + rooms (pie chart, top/bottom tables)."""
+    overview = get_building_overview(property_id)
+    if overview is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return overview
+
+
+@app.get(
+    "/api/v1/properties/{property_id}/units/{floor}/{apt_idx}/history",
+    response_model=UnitHistoryResponse,
+)
+def unit_history(property_id: int, floor: int, apt_idx: int) -> UnitHistoryResponse:
+    if apt_idx < 1 or apt_idx > 4:
+        raise HTTPException(status_code=400, detail="apt_idx must be 1..4")
+    history = get_unit_history(property_id, floor, apt_idx)
+    if history is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return history
+
+
+@app.get(
+    "/api/v1/properties/{property_id}/units/{floor}/{apt_idx}/forecast",
+    response_model=UnitForecastResponse,
+)
+def unit_forecast(property_id: int, floor: int, apt_idx: int) -> UnitForecastResponse:
+    if apt_idx < 1 or apt_idx > 4:
+        raise HTTPException(status_code=400, detail="apt_idx must be 1..4")
+    fc = get_unit_forecast(property_id, floor, apt_idx)
+    if fc is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return fc
+
+
+@app.get(
+    "/api/v1/properties/{property_id}/units/{floor}/{apt_idx}/forecast-timeline",
+    response_model=ForecastTimelineResponse,
+)
+def unit_forecast_timeline(
+    property_id: int,
+    floor: int,
+    apt_idx: int,
+    granularity: str = Query(default="monthly", pattern="^(monthly|weekly|daily)$"),
+) -> ForecastTimelineResponse:
+    if apt_idx < 1 or apt_idx > 4:
+        raise HTTPException(status_code=400, detail="apt_idx must be 1..4")
+    timeline = get_unit_forecast_timeline(property_id, floor, apt_idx, granularity)
+    if timeline is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return timeline
