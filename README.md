@@ -2,6 +2,10 @@
 
 Full-stack prototype for energy and emissions analytics, property mapping, and baseline forecasting.
 
+Built during FUTURY Build Days (https://www.futury.eu), this project addresses the Techem case (https://www.techem.com).
+It provides an AI-driven analysis experience for heating data, including detailed comparisons with similar users and actionable recommendations on how to improve energy efficiency and reduce emissions.
+The project also provides an MCP server interface for agentic integration, so AI agents can consume and act on generated findings in structured workflows.
+
 ## Stack
 
 - Frontend: React + TypeScript + Vite + Tailwind + Recharts + Deck.gl/MapLibre
