@@ -20,11 +20,20 @@ export function getForecast(days = 30): Promise<ForecastResponse> {
 }
 
 export async function getProperties(): Promise<PropertyItem[]> {
+  if (!supabase) return []
+
   const { data, error } = await supabase
     .from('properties')
-    .select('id,city,zipcode,energysource')
+    .select('id,city,zipcode,energysource,units(count)')
     .order('id')
 
   if (error) throw new Error(error.message)
-  return (data ?? []) as PropertyItem[]
+
+  return (data ?? []).map((row) => ({
+    id:           row.id as number,
+    city:         row.city as string,
+    zipcode:      row.zipcode as string,
+    energysource: row.energysource as string,
+    unit_count:   (row.units as { count: number }[])[0]?.count ?? 0,
+  }))
 }
