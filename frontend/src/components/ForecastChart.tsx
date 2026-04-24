@@ -8,13 +8,15 @@ type ForecastRow = {
 
 type ForecastChartProps = {
   data: ForecastRow[]
+  title?: string
+  subtitle?: string
 }
 
-export function ForecastChart({ data }: ForecastChartProps) {
+export function ForecastChart({ data, title = 'Energy Forecast', subtitle = '12-month projected energy profile for selected unit' }: ForecastChartProps) {
   return (
-    <div className="rounded-sm border border-stone-200 bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-semibold text-stone-900">Forecast (Baseline)</h2>
-      <p className="mb-4 text-sm text-stone-600">Lineare Projektion fuer die naechsten 30 Tage</p>
+    <div className="rounded-md border border-stone-200 bg-white p-5 shadow-sm">
+      <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
+      <p className="mb-4 text-[11px] text-stone-400">{subtitle}</p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>

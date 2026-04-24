@@ -23,7 +23,7 @@ export function EnergyTrendChart({ data }: EnergyTrendChartProps) {
   return (
     <div className="rounded-sm border border-stone-200 bg-white p-4 shadow-sm">
       <h2 className="text-lg font-semibold text-stone-900">Energy & Emission Trend</h2>
-      <p className="mb-4 text-sm text-stone-600">Historische Tageswerte aus Supabase oder Mock-Daten</p>
+      <p className="mb-4 text-sm text-stone-600">Historical daily values from Supabase or mock data</p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
