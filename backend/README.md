@@ -22,7 +22,7 @@ flowchart TD
   C -- no --> E[Synthesize<br/>HDD × per-unit factors]
   D --> F[Open-Meteo<br/>temperatures]
   E --> F
-  F --> G[HDD = max(0, 15°C − temp)]
+  F --> G["HDD = max(0, 15°C − temp)"]
   G --> H[OLS fit<br/>kWh = k·HDD + base]
   H --> I[Forecast temps<br/>≤16d + climatology proxy]
   I --> J[Project daily kWh]
